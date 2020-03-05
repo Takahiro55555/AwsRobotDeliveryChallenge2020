@@ -6,5 +6,6 @@
   <param name="app_setting_file_name_default" value="$(find delivery_robot_sample)/settings/settings.yaml"/>
 
   <!-- <node pkg="delivery_robot_sample" type="launch_navigation_stack.sh" name="launch_navigation_stack" output="screen" /> -->
+  <rosparam command="load" file="$(find delivery_robot_sample)/settings/step.yaml"/>
   <node pkg="delivery_robot_sample" type="commander" name="commander" output="screen"/>
 </launch>
