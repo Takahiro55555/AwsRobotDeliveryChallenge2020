@@ -5,6 +5,7 @@
 # 
 
 import os
+import math
 import rospy
 import json
 import time
@@ -56,7 +57,7 @@ class Commander():
                 payload["request_id"] = request_id
                 payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
                 payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
-                payload["yaw"] = 0
+                payload["yaw"] = rospy.get_param("/step")[self._current_step]["orientation"] * ( math.pi / 180 )
                 self._awsiot_to_ros_pub.publish(json.dumps({"payload":payload}))
                 self._is_sended = True
             s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
