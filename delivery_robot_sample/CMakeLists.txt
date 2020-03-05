@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   geometry_msgs
   nav_msgs
+  rosgraph_msgs
   message_generation
 )
 
@@ -48,6 +49,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     nav_msgs
+    rosgraph_msgs
     message_runtime
 )
 
@@ -67,6 +69,7 @@ catkin_install_python(PROGRAMS
   nodes/map_controller
   nodes/location_publisher
   nodes/navigation
+  nodes/commander
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
