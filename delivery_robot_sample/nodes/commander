@@ -4,8 +4,10 @@
 # このノードは navigation スタックへの操作を経路ファイルから行います
 # 
 
+import os
 import rospy
 import json
+import time
 from std_msgs.msg import String
 # from tf.transformations import euler_from_quaternion, quaternion_from_euler
 # from tf import TransformListener
@@ -21,20 +23,32 @@ class Commander():
         self._odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_cb, queue_size=1)
         self._awsiot_to_ros_pub = rospy.Publisher("/awsiot_to_ros", String, queue_size=1)
 
+        self.payload = {}
+        request_id =  time.time()
+        self.payload["command"] = "navigation"
+        self.payload["action"] = "setGoal"
+        self.payload["request_id"] = request_id
+        self.payload["x"] = rospy.get_param("/step")[0]["x"]
+        self.payload["y"] = rospy.get_param("/step")[0]["y"]
+        self.payload["yaw"] = 0        
+        
     def main(self):
         rospy.spin()
 
     def rosout_cb(self, data):
+        # rospy.get_param("/step")
         try:
-            if "Start the game!!" in data.msg:
+            if "Start time" in data.msg:
                 rospy.loginfo("detect start!!")
+                self._awsiot_to_ros_pub.publish(json.dumps({"payload":self.payload}))
         except Exception as e:
             rospy.logwarn("navigation request failed")
             rospy.logwarn(e)
     
     def odom_cb(self, data):
         try:
-            rospy.loginfo("X = " + str(data.pose.pose.position.x))
+            # rospy.loginfo("X = " + str(data.pose.pose.position.x))
+            pass
         except Exception as e:
             rospy.logwarn("navigation request failed")
             rospy.logwarn(e)
