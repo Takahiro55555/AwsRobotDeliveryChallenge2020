@@ -24,20 +24,17 @@ class Commander():
     def main(self):
         rospy.spin()
 
-    def rosout_cb(self, message):
+    def rosout_cb(self, data):
         try:
-            message_json = json.loads(message.data)
-            payload = message_json["payload"]
-            rospy.log(json.dumps(payload))
-
+            if "Start the game!!" in data.msg:
+                rospy.loginfo("detect start!!")
         except Exception as e:
             rospy.logwarn("navigation request failed")
             rospy.logwarn(e)
     
-    def odom_cb(self, message):
+    def odom_cb(self, data):
         try:
-            message_json = json.loads(message.data)
-            payload = message_json["payload"]
+            rospy.loginfo("X = " + str(data.pose.pose.position.x))
         except Exception as e:
             rospy.logwarn("navigation request failed")
             rospy.logwarn(e)
