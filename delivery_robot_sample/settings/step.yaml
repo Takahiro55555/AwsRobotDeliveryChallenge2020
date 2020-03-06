@@ -1,18 +1,13 @@
 step:
-    - x: 0.8229
-      y: 0.0967
+    - x: 0.6147
+      y: 0.0018
       tolerance: 0.25
-      orientation: 130
+      orientation: -45.0
          
-    - x: 0.093
-      y: 0.8834
+    - x: 0.1069
+      y: 0.9641
       tolerance: 0.25
-      orientation: 16
-
-    - x: 2.023
-      y: 1.3482
-      tolerance: 0.25
-      orientation: 0.0
+      orientation: 12.0
   
     - x: 5.500
       y: 1.3370
