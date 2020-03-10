@@ -1,5 +1,7 @@
 <launch>
   <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
     <arg name="slam_methods" value="gmapping"/>
+    <!--<arg name="slam_methods" value="karto"/>-->
+    <!--<arg name="slam_methods" value="frontier_exploration"/>-->
   </include>
 </launch>
