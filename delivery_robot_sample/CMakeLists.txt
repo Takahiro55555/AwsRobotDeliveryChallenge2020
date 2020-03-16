@@ -70,6 +70,7 @@ catkin_install_python(PROGRAMS
   nodes/location_publisher
   nodes/navigation
   nodes/commander
+  nodes/img_proc
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
