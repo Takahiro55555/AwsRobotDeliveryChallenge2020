@@ -1,0 +1,9 @@
+<launch>
+  <!-- <arg name="download_map" default="true"/>
+  <param name="download_map" value="$(arg download_map)"/> -->
+
+  <param name="app_setting_file_name" value="$(optenv APP_SETTING_FILE use_default)"/>
+  <param name="app_setting_file_name_default" value="$(find delivery_robot_sample)/settings/settings.yaml"/>
+
+  <node pkg="delivery_robot_sample" type="img_proc" name="img_proc" output="screen"/>
+</launch>
