@@ -71,6 +71,7 @@ catkin_install_python(PROGRAMS
   nodes/navigation
   nodes/commander
   nodes/img_proc
+  nodes/twugo_method
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
