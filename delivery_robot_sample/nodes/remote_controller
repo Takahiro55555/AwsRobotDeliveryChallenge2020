@@ -30,9 +30,9 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 import time
 
-LINERAR_SPEED = 0.1
+LINERAR_SPEED = 0.22
 LINEAR_STEP = 0.1 / 3
-ANGULER_SPEED = 0.5
+ANGULER_SPEED = 2.84
 ANGULER_STEP = 0.5 / 3
 
 class RemoteController():
