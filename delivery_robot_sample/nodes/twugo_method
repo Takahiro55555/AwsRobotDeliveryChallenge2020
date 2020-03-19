@@ -21,20 +21,24 @@ from geometry_msgs.msg import Vector3
 import math
 
 LINERAR_SPEED = 0.22
-LINEAR_STEP = 0.1 / 3
+LINEAR_STEP = LINERAR_SPEED / 5
 ANGULER_SPEED = 2.84
-ANGULER_STEP = 0.5 / 3
+ANGULER_STEP = ANGULER_SPEED / 5
 
 class TwugoMethod():
     def __init__(self):
-        # self._cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self._cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self._odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_cb, queue_size=1)
+        self._twugo_method_sub = rospy.Subscriber("/twugo_method", String, self.set_goal, queue_size=1)
         self.twist = Twist()
         self.next_synctime = time.time()
         self.is_moving = False
+        self.is_started = False
         self.action = ""
-        self.xg = 3.1411
-        self.yg = 0.2866
+        self.speed_p = 0.1
+        self.turn_p = 0.5
+        self.xg = 0
+        self.yg = 0
         
 
     def main(self):
@@ -52,13 +56,33 @@ class TwugoMethod():
             # if self.is_moving:
             #     self.sync_action()
 
+    def set_goal(self, data):
+        rospy.loginfo("payload type is :%s" % type(data.data))
+        self.is_started = True
+        payload = json.loads(data.data)
+        rospy.loginfo("payload['x'] type is :%s" % type(payload["x"]))
+        self.xg = payload["x"]
+        self.yg = payload["y"]
+
     def odom_cb(self, data):
+        if not self.is_started:
+            return
         r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
         r_ang_qua = tf.transformations.euler_from_quaternion([data.pose.pose.orientation.x, data.pose.pose.orientation.y, data.pose.pose.orientation.z, data.pose.pose.orientation.w])
         r_ang = r_ang_qua[2]
         atan2_tmp = math.atan2(self.yg - r_y, self.xg - r_x)
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang), math.cos(atan2_tmp - r_ang))
         rospy.loginfo("ang_diff = %f" % ang_diff)
+        distance_diff = ((self.yg - r_y)**2 + (self.xg - r_x)**2)**0.5
+
+        turn_speed = ang_diff * self.turn_p
+        # linear_speed = distance_diff * self.speed_p
+        linear_speed = LINERAR_SPEED
+
+        self.twist.linear.x = min([LINERAR_SPEED, linear_speed])
+        self.twist.angular.z = self.sign(turn_speed) * min([ANGULER_SPEED, abs(turn_speed)])
+        self.next_synctime = time.time() + 0.3
+        self._cmd_pub.publish(self.twist)
 
     # def sync_action(self):
     #     if self.action == 'forward':
@@ -90,6 +114,10 @@ class TwugoMethod():
     #     if self.twist.linear.x == 0 and self.twist.angular.z == 0:
     #         self.is_moving = False
         
+    @staticmethod
+    def sign(x):
+        return (x > 0) - (x < 0)
+
 def main():
     rospy.init_node('twugo_method')
     remote_controller = TwugoMethod()

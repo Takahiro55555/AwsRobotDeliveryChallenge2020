@@ -7,5 +7,8 @@
 
   <!-- <node pkg="delivery_robot_sample" type="launch_navigation_stack.sh" name="launch_navigation_stack" output="screen" /> -->
   <rosparam command="load" file="$(find delivery_robot_sample)/settings/step.yaml"/>
-  <node pkg="delivery_robot_sample" type="commander" name="commander" output="screen"/>
+  <node pkg="delivery_robot_sample" type="commander" name="commander" output="screen" required="true">
+    <param name="aws_iot_config_file" value="$(optenv AWS_IOT_CONFIG_FILE use_default)"/>
+    <param name="aws_iot_config_file_default" value="$(find aws_game_manager)/certs/config.yaml"/>
+  </node>
 </launch>
