@@ -54,22 +54,11 @@ class TwugoMethod():
 
     def odom_cb(self, data):
         r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
-        r_ang = tf.transformations.euler_from_quaternion([data.pose.pose.orientation.x, data.pose.pose.orientation.y, data.pose.pose.orientation.z, data.pose.pose.orientation.w])
-        # rospy.loginfo("Robot angle: %f" % math.degrees(r_ang[2]))
-        # g_ang = tf.transformations.quaternion_from_euler(0.0, 0.0, math.atan2(self.yg - r_y, self.xg - r_x))
-        # diff_ang = g_ang - data.pose.pose.orientation
-        # rospy.loginfo("Relative goal angle: %f" % math.degrees(tf.transformations.euler_from_quaternion(g_ang)))
-        # # rospy.loginfo("Relative diff angle: %f" % math.degrees(g_ang - r_ang[2]))
-        # rospy.loginfo("Relative diff angle: %f" % math.degrees(tf.transformations.euler_from_quaternion(diff_ang)))
-        
-        ang_diff = self.sign(math.atan2(self.yg - r_y, self.xg - r_x)) * (math.atan((self.yg - r_y)/(self.xg - r_x)) - r_ang[2])
-        rospy.loginfo("Relative diff angle: %f, Relative goal angle: %s" % (math.degrees(ang_diff), math.degrees(math.atan((self.yg - r_y)/(self.xg - r_x)))))
-
-    @staticmethod
-    def sign(x):
-        return (x > 0) - (x < 0)
-
-
+        r_ang_qua = tf.transformations.euler_from_quaternion([data.pose.pose.orientation.x, data.pose.pose.orientation.y, data.pose.pose.orientation.z, data.pose.pose.orientation.w])
+        r_ang = r_ang_qua[2]
+        atan2_tmp = math.atan2(self.yg - r_y, self.xg - r_x)
+        ang_diff = math.atan2(math.sin(atan2_tmp - r_ang), math.cos(atan2_tmp - r_ang))
+        rospy.loginfo("ang_diff = %f" % ang_diff)
 
     # def sync_action(self):
     #     if self.action == 'forward':
