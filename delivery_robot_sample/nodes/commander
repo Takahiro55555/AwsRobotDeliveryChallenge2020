@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # このノードは navigation スタックへの操作を経路ファイルから行います
-# 
+#
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 import yaml
@@ -21,21 +21,25 @@ from rosgraph_msgs.msg import Log
 # from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 # from geometry_msgs.msg import Quaternion
 
+
 class Commander():
     def __init__(self, aws_iot_client):
         self._iot_client = aws_iot_client
         self._iot_client.set_game_command_cb(self._iot_command_cb)
 
         # self._rosout_sub = rospy.Subscriber("/rosout", Log, self.rosout_cb, queue_size=1)
-        self._odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_cb, queue_size=1)
-        self._awsiot_to_ros_pub = rospy.Publisher("/awsiot_to_ros", String, queue_size=1)
-        self._twugo_method_pub = rospy.Publisher("/twugo_method", String, queue_size=1)
-        
+        self._odom_sub = rospy.Subscriber(
+            "/odom", Odometry, self.odom_cb, queue_size=1)
+        self._awsiot_to_ros_pub = rospy.Publisher(
+            "/awsiot_to_ros", String, queue_size=1)
+        self._twugo_method_pub = rospy.Publisher(
+            "/twugo_method", String, queue_size=1)
+
         self._current_step = 0
         self._is_started = False
         self._is_sended = False
         self._is_goal = False
-        
+
     def main(self):
         rospy.spin()
 
@@ -48,51 +52,37 @@ class Commander():
                 self._is_goal = False
                 self._current_step = 0
 
-    # def rosout_cb(self, data):
-    #     rospy.loginfo("colled rosout_cb!!")
-    #     # rospy.get_param("/step")
-    #     try:
-    #         if "Start time" in data.msg:
-    #             rospy.loginfo("detect start!!")
-    #             self._is_started = True
-    #             self._is_sended = False
-    #             self._is_goal = False
-    #             self._current_step = 0
-    #     except Exception as e:
-    #         rospy.logwarn("start detecter request failed")
-    #         rospy.logwarn(e)
-    
     def odom_cb(self, data):
         try:
             payload = {}
-            if self._is_goal: return
-            if not self._is_started: return
+            if self._is_goal:
+                return
+            if not self._is_started:
+                return
             if not self._is_sended:
-                request_id =  time.time()
-                # payload["command"] = "navigation"
-                # payload["action"] = "setGoal"
-                # payload["request_id"] = request_id
                 payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
                 payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
-                # payload["yaw"] = rospy.get_param("/step")[self._current_step]["orientation"] * ( math.pi / 180 )
-                # self._awsiot_to_ros_pub.publish(json.dumps({"payload":payload}))
+                payload["is_goal"] = self._is_goal
                 self._twugo_method_pub.publish(json.dumps(payload))
                 self._is_sended = True
             s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
             r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
             error = ((r_x - s_x)**2 + (r_y - s_y)**2)
-            rospy.loginfo("Current step: %d, Error: %f" % (self._current_step, (error)**0.5))
+            
             if error < rospy.get_param("/step")[self._current_step]["tolerance"]**2:
                 self._current_step += 1
                 self._is_sended = False
+                rospy.loginfo("Current step: %d" % self._current_step)
                 if len(rospy.get_param("/step")) <= self._current_step:
                     self._is_goal = True
+                    payload["is_goal"] = self._is_goal
+                    self._twugo_method_pub.publish(json.dumps(payload))
                     rospy.loginfo("Is Goal!!!!!!!!")
-
 
         except Exception as e:
             rospy.logwarn("command publisher request failed")
             rospy.logwarn(e)
+
 
 class MqttRos:
     AllowedActions = ['both', 'publish', 'subscribe']
@@ -108,13 +98,15 @@ class MqttRos:
         self.init_ros_pubs()
         self.init_ros_subs()
         self.mqtt_subs()
-                
+
     def init_ros_pubs(self):
         # Place holder publisher into ros space.
-        self.mqttToRosPub = rospy.Publisher('awsiot_to_ros', String, queue_size=1)
+        self.mqttToRosPub = rospy.Publisher(
+            'awsiot_to_ros', String, queue_size=1)
 
     def init_ros_subs(self):
-        self.rosPubToMqtt = rospy.Subscriber('ros_to_awsiot', String, self.ros_to_mqtt_cb, queue_size=10)
+        self.rosPubToMqtt = rospy.Subscriber(
+            'ros_to_awsiot', String, self.ros_to_mqtt_cb, queue_size=10)
 
     def ros_to_mqtt_cb(self, msg):
         self.ros_to_awsiot_publisher(msg)
@@ -128,7 +120,8 @@ class MqttRos:
 
     def gm_to_awsiot_publisher(self, message):
         try:
-            self.myAWSIoTMQTTClient.publish('gm_{}'.format(self.publish_topic), str(message), 1)
+            self.myAWSIoTMQTTClient.publish(
+                'gm_{}'.format(self.publish_topic), str(message), 1)
         except Exception as e:
             rospy.logwarn(e)
             rospy.logwarn("MqttRos::gm_publisher got exception")
@@ -158,15 +151,18 @@ class MqttRos:
         host = self.iot_data['endpoint']
         rootCAPath = os.path.join(folder_path, self.iot_data['rootCAFile'])
         certificatePath = os.path.join(folder_path, self.iot_data['certFile'])
-        privateKeyPath = os.path.join(folder_path, self.iot_data['privateKeyFile'])
+        privateKeyPath = os.path.join(
+            folder_path, self.iot_data['privateKeyFile'])
         useWebsocket = self.iot_data['useWebsocket']
         self.mode = self.iot_data['mqttMode']
 
         if self.mode not in MqttRos.AllowedActions:
-            rospy.logwarn("Unknown --mode option %s. Must be one of %s" % (self.mode, str(MqttRos.AllowedActions)))
+            rospy.logwarn("Unknown --mode option %s. Must be one of %s" %
+                          (self.mode, str(MqttRos.AllowedActions)))
             exit(2)
         if useWebsocket and certificatePath and privateKeyPath:
-            rospy.logwarn("X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
+            rospy.logwarn(
+                "X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
             exit(2)
         if not useWebsocket and (not certificatePath or not privateKeyPath):
             rospy.logwarn("Missing credentials for authentication.")
@@ -177,21 +173,23 @@ class MqttRos:
         if not useWebsocket:
             port = 8883
 
-
         # Init AWSIoTMQTTClient
         self.myAWSIoTMQTTClient = None
         if useWebsocket:
-            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(self.client_id, useWebsocket=True)
+            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(
+                self.client_id, useWebsocket=True)
             self.myAWSIoTMQTTClient.configureEndpoint(host, port)
             self.myAWSIoTMQTTClient.configureCredentials(rootCAPath)
         else:
             self.myAWSIoTMQTTClient = AWSIoTMQTTClient(self.client_id)
             self.myAWSIoTMQTTClient.configureEndpoint(host, port)
-            self.myAWSIoTMQTTClient.configureCredentials(rootCAPath, privateKeyPath, certificatePath)
+            self.myAWSIoTMQTTClient.configureCredentials(
+                rootCAPath, privateKeyPath, certificatePath)
 
         # AWSIoTMQTTClient connection configuration
         self.myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
-        self.myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
+        # Infinite offline Publish queueing
+        self.myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)
         self.myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
         self.myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
         self.myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
@@ -200,9 +198,11 @@ class MqttRos:
         # Connect and subscribe to AWS IoT
         self.myAWSIoTMQTTClient.connect()
         if self.mode == 'both' or self.mode == 'subscribe':
-            self.myAWSIoTMQTTClient.subscribe(self.subscribe_topic, 1, self.mqtt_callback)
+            self.myAWSIoTMQTTClient.subscribe(
+                self.subscribe_topic, 1, self.mqtt_callback)
 
-        self.myAWSIoTMQTTClient.subscribe('gm_{}'.format(self.subscribe_topic), 1, self.gm_mqtt_callback)
+        self.myAWSIoTMQTTClient.subscribe('gm_{}'.format(
+            self.subscribe_topic), 1, self.gm_mqtt_callback)
 
     def set_game_command_cb(self, callback):
         self._game_command_handler = callback
@@ -226,7 +226,8 @@ def main():
     aws_iot_client = MqttRos(config)
 
     commander = Commander(aws_iot_client)
-    commander.main()        
+    commander.main()
+
 
 if __name__ == '__main__':
     main()
