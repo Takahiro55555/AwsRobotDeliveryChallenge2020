@@ -35,7 +35,7 @@ class TwugoMethod():
         self._next_synctime = time.time()
         self._is_moving = False
         self._is_started = False
-        self._turn_p = 0.5
+        self._turn_p = 0.8
         self._x_goal = 0
         self._y_goal = 0
 
@@ -62,6 +62,9 @@ class TwugoMethod():
 
     def odom_cb(self, data):
         if not self._is_started:
+            self._twist.linear.x = 0
+            self._twist.angular.z = 0
+            self._cmd_pub.publish(self._twist)
             return
         r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
         r_ang_qua = tf.transformations.euler_from_quaternion([
@@ -77,6 +80,7 @@ class TwugoMethod():
         self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
         self._twist.angular.z = self.sign(
             turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
+        rospy.loginfo("andif:%f ,angle:%f"%(ang_diff, self._twist.angular.z))
         self._next_synctime = time.time() + 0.3
         self._cmd_pub.publish(self._twist)
 
