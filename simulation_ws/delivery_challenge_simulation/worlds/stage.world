@@ -78,7 +78,6 @@
       <pose>0.604890 0.715556 0 0 0 0</pose>
       <name>unit_cylinder3</name>
     </include>
-    <!--
     <include>
       <uri>model://models/bus1</uri>
       <pose>3.759249 0.219470 0 0 -0 -3.033658</pose>
@@ -94,6 +93,5 @@
       <pose>4.33532 2.22348 0 0 0 -1.56296</pose>
       <name>bus3</name>
     </include>
-    -->
   </world>
 </sdf>
