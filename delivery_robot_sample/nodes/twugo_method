@@ -80,7 +80,6 @@ class TwugoMethod():
         self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
         self._twist.angular.z = self.sign(
             turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
-        rospy.loginfo("andif:%f ,angle:%f"%(ang_diff, self._twist.angular.z))
         self._next_synctime = time.time() + 0.3
         self._cmd_pub.publish(self._twist)
 
