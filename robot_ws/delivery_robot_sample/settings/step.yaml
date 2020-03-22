@@ -12,7 +12,7 @@ step:
       tolerance: 0.02
   
     - x: 4.6000
-      y: 1.0500
+      y: 1.0400
       tolerance: 0.05
     
     - x: 5.0
