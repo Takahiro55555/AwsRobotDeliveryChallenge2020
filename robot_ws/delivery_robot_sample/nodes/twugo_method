@@ -34,6 +34,7 @@ class TwugoMethod():
         self._twist = Twist()
         self._next_synctime = time.time()
         self._is_moving = False
+        self._is_stoped = False
         self._is_started = False
         self._turn_p = 0.8
         self._x_goal = 0
@@ -41,15 +42,10 @@ class TwugoMethod():
 
     def main(self):
         while not rospy.is_shutdown():
-            if not self._is_moving:
-                time.sleep(0.3)
-                continue
-
-            while not rospy.is_shutdown():
-                d = self._next_synctime - time.time()
-                if d <= 0:
-                    break
-                time.sleep(d)
+            d = self._next_synctime - time.time()
+            if d <= 0:
+                break
+            time.sleep(d)
 
     def set_goal(self, data):
         self._is_started = True
@@ -61,10 +57,12 @@ class TwugoMethod():
         self._y_goal = payload["y"]
 
     def odom_cb(self, data):
-        if not self._is_started:
+        if not self._is_started and not self._is_stoped:
             self._twist.linear.x = 0
             self._twist.angular.z = 0
             self._cmd_pub.publish(self._twist)
+            self._is_stoped = True
+        if not self._is_started:
             return
         r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
         r_ang_qua = tf.transformations.euler_from_quaternion([
@@ -82,6 +80,7 @@ class TwugoMethod():
             turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
         self._next_synctime = time.time() + 0.3
         self._cmd_pub.publish(self._twist)
+        self._is_stoped = False
 
     @staticmethod
     def sign(x):
