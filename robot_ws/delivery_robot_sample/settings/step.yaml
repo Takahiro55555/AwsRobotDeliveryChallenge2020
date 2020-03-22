@@ -3,17 +3,17 @@ step:
       y: 0.4451
       tolerance: 0.25
          
-    - x: 4.1183
-      y: 0.5783
-      tolerance: 0.25
+    # - x: 4.1183
+    #   y: 0.5783
+    #   tolerance: 0.25
 
-    - x: 4.4422
-      y: 0.9361
-      tolerance: 0.25
+    - x: 4.0800
+      y: 0.6500
+      tolerance: 0.02
   
-    - x: 4.5909
-      y: 1.1
-      tolerance: 0.15
+    - x: 4.6000
+      y: 1.0500
+      tolerance: 0.05
     
     - x: 5.0
       y: 1.3
