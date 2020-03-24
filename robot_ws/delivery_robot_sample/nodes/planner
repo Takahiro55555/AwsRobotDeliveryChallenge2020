@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# このノードは navigation スタックへの操作を経路ファイルから行います
+#
+
+import yaml
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+import os
+import math
+import rospy
+import json
+import time
+from std_msgs.msg import String
+from nav_msgs.msg import Odometry
+from rosgraph_msgs.msg import Log
+
+
+class Planner():
+    def __init__(self):
+        self._odom_sub = rospy.Subscriber(
+            "/odom", Odometry, self.odom_cb, queue_size=1)
+        self._awsiot_to_ros_pub = rospy.Publisher(
+            "/awsiot_to_ros", String, queue_size=1)
+        self._twugo_method_pub = rospy.Publisher(
+            "/twugo_method", String, queue_size=1)
+
+        # self.__current_vertex
+
+    def main(self):
+        rospy.spin()
+
+    def _iot_command_cb(self, payload):
+        if "command" in payload and "action" in payload and "request_id" in payload:
+            if payload["command"] == "game" and payload["action"] == "start":
+                rospy.loginfo("detect start!!")
+                self._is_started = True
+                self._is_sended = False
+                self._is_goal = False
+                self._current_step = 0
+
+    def odom_cb(self, data):
+        try:
+            payload = {}
+            if self._is_goal:
+                return
+            if not self._is_started:
+                return
+            if not self._is_sended:
+                payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
+                payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
+                payload["is_goal"] = self._is_goal
+                self._twugo_method_pub.publish(json.dumps(payload))
+                self._is_sended = True
+            s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
+            r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
+            error = ((r_x - s_x)**2 + (r_y - s_y)**2)
+            
+            if error < rospy.get_param("/step")[self._current_step]["tolerance"]**2:
+                self._current_step += 1
+                self._is_sended = False
+                rospy.loginfo("Current step: %d" % self._current_step)
+                if len(rospy.get_param("/step")) <= self._current_step:
+                    self._is_goal = True
+                    payload["is_goal"] = self._is_goal
+                    self._twugo_method_pub.publish(json.dumps(payload))
+                    rospy.loginfo("Is Goal!!!!!!!!")
+
+        except Exception as e:
+            rospy.logwarn("command publisher request failed")
+            rospy.logwarn(e)
+
+def main():
+    rospy.init_node('planner')
+    planner = Planner()
+    planner.main()
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+class Vertex:
+    def __init__(self, x, y, is_destination=False):
+        self.__edge_list = []  # 
+        self.__x = x
+        self.__y = y
+        self.__is_destination = is_destination
+    
+    def set_edge(self, edge):
+        if edge in self.__edge_list:
+            return
+        self.__edge_list.append(edge)
+
+    def get_position(self):
+        return self.__x, self.__y
+
+class Edge:
+    def __init__(self, vertex_a, vertex_b):
+        self.__vertex_list = [vertex_a, vertex_b]
+        self.__cost = self.__calc_cost()
+
+    def get_opposite_vertex(self, my_vertex):
+        if not my_vertex in self.__vertex_list:
+            return None
+        for v in self.__vertex_list:
+            if v is my_vertex:
+                continue
+            return v
+
+    def __calc_cost(self):
+        ax, ay = self.__vertex_list[0].get_position()
+        bx, by = self.__vertex_list[1].get_position()
+        return ((ax - bx)**2 + (ay - by)**2)**0.5
+    
