@@ -25,12 +25,16 @@ def main():
 
 class Planner():
     def __init__(self):
-        self._odom_sub = rospy.Subscriber(
-            "/odom", Odometry, self.odom_cb, queue_size=1)
-        self._awsiot_to_ros_pub = rospy.Publisher(
-            "/awsiot_to_ros", String, queue_size=1)
-        self._twugo_method_pub = rospy.Publisher(
-            "/twugo_method", String, queue_size=1)
+        # self._odom_sub = rospy.Subscriber(
+        #     "/odom", Odometry, self.odom_cb, queue_size=1)
+        # self._awsiot_to_ros_pub = rospy.Publisher(
+        #     "/awsiot_to_ros", String, queue_size=1)
+        # self._twugo_method_pub = rospy.Publisher(
+        #     "/twugo_method", String, queue_size=1)
+
+        vertex_list_param = rospy.get_param("/vertex_list")
+        rospy.loginfo(vertex_list_param)
+        # FLAG_STR = "%d-%d"
 
         self.__vertex_list = []
         self.__vertex_list.append(Vertex(0, 0.0000, 0.0000, is_destination=True))

@@ -1,0 +1,6 @@
+<launch>
+  <param name="app_setting_file_name" value="$(optenv APP_SETTING_FILE use_default)"/>
+  <param name="app_setting_file_name_default" value="$(find delivery_robot_sample)/settings/settings.yaml"/>
+  <rosparam command="load" file="$(find delivery_robot_sample)/settings/map_graph.yaml"/>
+  <node pkg="delivery_robot_sample" type="planner" name="planner" output="screen" required="true"/>
+</launch>
