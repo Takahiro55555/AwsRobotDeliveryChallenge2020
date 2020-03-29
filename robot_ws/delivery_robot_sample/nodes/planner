@@ -55,7 +55,6 @@ class Planner():
                 key = FLAG_STR % (v["id"], lv)
                 if key in linked_vertex_flag:
                     continue
-                rospy.loginfo(key)
                 # NOTE: __vertex_list_param のインデックスと vertex_id が一致する保証はないため
                 #       vertex_id　から当該 Vertex を確実に取得できる vertex_dict を利用する
                 Edge(vertex_dict[v["id"]], vertex_dict[lv])
@@ -81,7 +80,7 @@ class Planner():
         mini_cost_path = None
         # 最小となる巡回経路を算出する
         for path in all_patterns:
-            p = 0
+            p = start_vertex_id
             tmp_cost = 0
             for c in path:
                 key = "%d-%d" % (p, c)
@@ -91,7 +90,7 @@ class Planner():
                 mini_cost = tmp_cost
                 mini_cost_path = path
 
-        p = 0
+        p = start_vertex_id
         full_path = [start_vertex]
         for c in mini_cost_path:
             key = "%d-%d" % (p, c)
