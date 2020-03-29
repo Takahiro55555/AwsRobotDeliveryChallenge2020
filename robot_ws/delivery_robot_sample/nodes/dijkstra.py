@@ -88,7 +88,7 @@ class Planner():
         mini_cost_path = None
         # 最小となる巡回経路を算出する
         for path in all_patterns:
-            p = 0
+            p = start_vertex_id
             tmp_cost = 0
             for c in path:
                 key = "%d-%d" % (p, c)
@@ -98,18 +98,16 @@ class Planner():
                 mini_cost = tmp_cost
                 mini_cost_path = path
 
-        print(mini_cost_path)
-        p = 0
+        p = start_vertex_id
         full_path = [start_vertex]
         for c in mini_cost_path:
             key = "%d-%d" % (p, c)
             p = c
             half_path = self.__shortest_path_dict[key]["path"]
-            print(map(lambda x: x.get_vertex_id(), half_path))
             if half_path[0].get_vertex_id() == c:
                 half_path.reverse()
-            print(map(lambda x: x.get_vertex_id(), half_path))
             full_path.extend(half_path[1:])
+        print(mini_cost_path)
         print(map(lambda x: x.get_vertex_id(), full_path))
 
     def __dijkstra_planner(self, start_vertex):
@@ -170,12 +168,10 @@ class Planner():
                     if tmp_d < min_dist_dict[arrival_vertex]:
                         min_dist_dict[arrival_vertex] = tmp_d
                         heapq.heappush(queue, arrival_vertex)
-                        # heapq.heappush(queue, (min_dist_dict[arrival_vertex], arrival_vertex))
                         prev_vertex_dict[arrival_vertex] = prev_vertex
                 else:
                     min_dist_dict[arrival_vertex] = tmp_d
                     heapq.heappush(queue, arrival_vertex)
-                    # heapq.heappush(queue, (min_dist_dict[arrival_vertex], arrival_vertex))
                     prev_vertex_dict[arrival_vertex] = prev_vertex
 
 class Vertex:
