@@ -162,12 +162,10 @@ class Planner():
                     if tmp_d < min_dist_dict[arrival_vertex]:
                         min_dist_dict[arrival_vertex] = tmp_d
                         heapq.heappush(queue, arrival_vertex)
-                        # heapq.heappush(queue, (min_dist_dict[arrival_vertex], arrival_vertex))
                         prev_vertex_dict[arrival_vertex] = prev_vertex
                 else:
                     min_dist_dict[arrival_vertex] = tmp_d
                     heapq.heappush(queue, arrival_vertex)
-                    # heapq.heappush(queue, (min_dist_dict[arrival_vertex], arrival_vertex))
                     prev_vertex_dict[arrival_vertex] = prev_vertex
 
     def _iot_command_cb(self, payload):
