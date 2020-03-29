@@ -28,6 +28,7 @@ vertex_list:
     y: 0.2866
     is_destination: false
     linked_vertex_list:
+      - 2
       - 4
       - 7
       
