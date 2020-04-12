@@ -30,12 +30,15 @@ class Commander():
         # self._rosout_sub = rospy.Subscriber("/rosout", Log, self.rosout_cb, queue_size=1)
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.odom_cb, queue_size=1)
+        self._path_sub = rospy.Subscriber(
+            "/path", String, self.path_cb, queue_size=1)
         self._awsiot_to_ros_pub = rospy.Publisher(
             "/awsiot_to_ros", String, queue_size=1)
         self._twugo_method_pub = rospy.Publisher(
             "/twugo_method", String, queue_size=1)
 
         self._current_step = 0
+        self._step = []
         self._is_started = False
         self._is_sended = False
         self._is_goal = False
@@ -52,6 +55,12 @@ class Commander():
                 self._is_goal = False
                 self._current_step = 0
 
+    def path_cb(self, data):
+        payload = json.loads(data.data)
+        # rospy.loginfo("[On commander][payload] %s" % payload)
+        self._step = payload
+        self._current_step = 0
+
     def odom_cb(self, data):
         try:
             payload = {}
@@ -60,20 +69,20 @@ class Commander():
             if not self._is_started:
                 return
             if not self._is_sended:
-                payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
-                payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
+                payload["x"] = self._step[self._current_step]["x"]
+                payload["y"] = self._step[self._current_step]["y"]
                 payload["is_goal"] = self._is_goal
                 self._twugo_method_pub.publish(json.dumps(payload))
                 self._is_sended = True
-            s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
+            s_x, s_y = self._step[self._current_step]["x"], self._step[self._current_step]["y"]
             r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
             error = ((r_x - s_x)**2 + (r_y - s_y)**2)
             
-            if error < rospy.get_param("/step")[self._current_step]["tolerance"]**2:
+            if error < self._step[self._current_step]["tolerance"]**2:
                 self._current_step += 1
                 self._is_sended = False
                 rospy.loginfo("Current step: %d" % self._current_step)
-                if len(rospy.get_param("/step")) <= self._current_step:
+                if len(self._step) <= self._current_step:
                     self._is_goal = True
                     payload["is_goal"] = self._is_goal
                     self._twugo_method_pub.publish(json.dumps(payload))
