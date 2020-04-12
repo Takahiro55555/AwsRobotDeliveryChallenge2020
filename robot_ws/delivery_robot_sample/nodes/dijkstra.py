@@ -79,7 +79,7 @@ class Planner():
                 self.__dijkstra_planner(vertex)
                 vertex_id = vertex.get_vertex_id()
                 if vertex_id != start_vertex_id:
-                    dcestination_id_list.append(vertex_id)
+                    destination_id_list.append(vertex_id)
                 else:
                     start_vertex = vertex
         # すべての巡回経路を算出
@@ -107,8 +107,9 @@ class Planner():
             if half_path[0].get_vertex_id() == c:
                 half_path.reverse()
             full_path.extend(half_path[1:])
-        print(mini_cost_path)
-        print(map(lambda x: x.get_vertex_id(), full_path))
+        print("Destination path: %s" % mini_cost_path)
+        print("Full path: %s" % map(lambda x: x.get_vertex_id(), full_path))
+        return full_path
 
     def __dijkstra_planner(self, start_vertex):
 
