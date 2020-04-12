@@ -4,6 +4,7 @@
 # このノードは navigation スタックへの操作を経路ファイルから行います
 #
 
+import time
 import rospy
 import json
 from std_msgs.msg import String
@@ -20,19 +21,36 @@ def main():
 
 class Planner():
     def __init__(self):
-        # self._odom_sub = rospy.Subscriber(
-        #     "/odom", Odometry, self.odom_cb, queue_size=1)
-        # self._awsiot_to_ros_pub = rospy.Publisher(
-        #     "/awsiot_to_ros", String, queue_size=1)
-        # self._twugo_method_pub = rospy.Publisher(
-        #     "/twugo_method", String, queue_size=1)
+        self.__path_pub = rospy.Publisher(
+            "/path", String, queue_size=1)
 
+        self.__shortest_path_dict = {}
         self.__vertex_list_param = rospy.get_param("/vertex_list")
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
-        self.__shortest_path_dict = {}
 
     def main(self):
+        full_path = self.__calc_all_patterns(start_vertex_id=0)
+        for _ in range(10):
+            self.__send_path(full_path)
+            time.sleep(2)
         rospy.spin()
+
+    def __send_path(self, full_path):
+        position_full_path = []
+        # vertex_id から 座標を取得しListに格納する
+        for v in full_path:
+            x, y = v.get_position()
+            position_full_path.append(dict(
+                x = x,
+                y = y,
+                tolerance = 0.15,
+                is_destination = v.get_is_destination()
+            ))
+
+        # 作成した座標データをCommander Node に送信する
+        # rospy.loginfo("[On planner][position_full_path] %s" % json.dumps(position_full_path))
+        self.__path_pub.publish(json.dumps(position_full_path))
+
 
     def __init_graph(self):
         # Vertex を生成
