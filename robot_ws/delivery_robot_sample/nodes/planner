@@ -32,7 +32,6 @@ class Planner():
         self.__shortest_path_dict = {}
 
     def main(self):
-        self.__calc_all_patterns()
         rospy.spin()
 
     def __init_graph(self):
@@ -166,47 +165,7 @@ class Planner():
                     min_dist_dict[arrival_vertex] = tmp_d
                     heapq.heappush(queue, arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
-
-    def _iot_command_cb(self, payload):
-        if "command" in payload and "action" in payload and "request_id" in payload:
-            if payload["command"] == "game" and payload["action"] == "start":
-                rospy.loginfo("detect start!!")
-                self._is_started = True
-                self._is_sended = False
-                self._is_goal = False
-                self._current_step = 0
-
-    def odom_cb(self, data):
-        try:
-            payload = {}
-            if self._is_goal:
-                return
-            if not self._is_started:
-                return
-            if not self._is_sended:
-                payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
-                payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
-                payload["is_goal"] = self._is_goal
-                self._twugo_method_pub.publish(json.dumps(payload))
-                self._is_sended = True
-            s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
-            r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
-            error = ((r_x - s_x)**2 + (r_y - s_y)**2)
-            
-            if error < rospy.get_param("/step")[self._current_step]["tolerance"]**2:
-                self._current_step += 1
-                self._is_sended = False
-                rospy.loginfo("Current step: %d" % self._current_step)
-                if len(rospy.get_param("/step")) <= self._current_step:
-                    self._is_goal = True
-                    payload["is_goal"] = self._is_goal
-                    self._twugo_method_pub.publish(json.dumps(payload))
-                    rospy.loginfo("Is Goal!!!!!!!!")
-
-        except Exception as e:
-            rospy.logwarn("command publisher request failed")
-            rospy.logwarn(e)
-
+    
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
