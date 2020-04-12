@@ -79,7 +79,7 @@ class Planner():
                 self.__dijkstra_planner(vertex)
                 vertex_id = vertex.get_vertex_id()
                 if vertex_id != start_vertex_id:
-                    destination_id_list.append(vertex_id)
+                    dcestination_id_list.append(vertex_id)
                 else:
                     start_vertex = vertex
         # すべての巡回経路を算出
@@ -117,7 +117,7 @@ class Planner():
         min_dist_dict[start_vertex] = 0
         # vertexに最小コストで辿り着く場合の直前のノード
         prev_vertex_dict = {}
-        prev_vertex_dict[start_vertex] = ''
+        prev_vertex_dict[start_vertex] = Vertex(None, None, None)
         queue = []
         # START vertex をキューにプッシュ
         heapq.heappush(queue, start_vertex)
@@ -150,6 +150,9 @@ class Planner():
                     self.__shortest_path_dict[key] = result
                     arrived_destination.append(vertex)
                     if(len(arrived_destination) >= self.__destination_num):
+                        print("start_vertex %d" % start_vertex.get_vertex_id())
+                        print("min_dist_dict %s" %  {key.get_vertex_id(): min_dist_dict[key] for key in min_dist_dict} )
+                        print("prev_vertex_dict %s" % {key.get_vertex_id(): prev_vertex_dict[key].get_vertex_id() for key in prev_vertex_dict})
                         return
 
             prev_vertex = vertex

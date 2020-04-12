@@ -67,6 +67,7 @@ class Planner():
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
         linked_vertex_flag = dict()
+        edge_counter = 0
         for v in self.__vertex_list_param:
             for lv in v["linked_vertex_list"]:
                 key = FLAG_STR % (v["id"], lv)
@@ -78,6 +79,8 @@ class Planner():
                 linked_vertex_flag[key] = True
                 key = FLAG_STR % (lv, v["id"])
                 linked_vertex_flag[key] = True
+                edge_counter += 1
+        rospy.loginfo("Edge num: %d" % edge_counter)
 
     def __calc_all_patterns(self, start_vertex_id=0):
         destination_id_list = []
@@ -127,7 +130,7 @@ class Planner():
         min_dist_dict[start_vertex] = 0
         # vertexに最小コストで辿り着く場合の直前のノード
         prev_vertex_dict = {}
-        prev_vertex_dict[start_vertex] = ''
+        prev_vertex_dict[start_vertex] = Vertex(None, None, None)
         queue = []
         # START vertex をキューにプッシュ
         heapq.heappush(queue, start_vertex)
@@ -160,6 +163,9 @@ class Planner():
                     self.__shortest_path_dict[key] = result
                     arrived_destination.append(vertex)
                     if(len(arrived_destination) >= self.__destination_num):
+                        rospy.loginfo("start_vertex %d" % start_vertex.get_vertex_id())
+                        rospy.loginfo("min_dist_dict %s" %  {key.get_vertex_id(): min_dist_dict[key] for key in min_dist_dict} )
+                        rospy.loginfo("prev_vertex_dict %s" % {key.get_vertex_id(): prev_vertex_dict[key].get_vertex_id() for key in prev_vertex_dict})
                         return
 
             prev_vertex = vertex
@@ -183,7 +189,7 @@ class Planner():
                     min_dist_dict[arrival_vertex] = tmp_d
                     heapq.heappush(queue, arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
-    
+
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
