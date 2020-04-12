@@ -25,14 +25,15 @@ class Planner():
             "/path", String, queue_size=1)
 
         self.__shortest_path_dict = {}
+        time.sleep(10)
         self.__vertex_list_param = rospy.get_param("/vertex_list")
+        rospy.loginfo("vertex list from rosparam: %s" % self.__vertex_list_param)
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
 
     def main(self):
+        rospy.loginfo("Starting planner main function")
         full_path = self.__calc_all_patterns(start_vertex_id=0)
-        for _ in range(10):
-            self.__send_path(full_path)
-            time.sleep(2)
+        self.__send_path(full_path)
         rospy.spin()
 
     def __send_path(self, full_path):
@@ -53,6 +54,7 @@ class Planner():
 
 
     def __init_graph(self):
+        rospy.loginfo("Starting planner init_graph function")
         # Vertex を生成
         self.__vertex_list = []
         vertex_dict = {}  # NOTE: __vertex_list_param のインデックスと vertex_id が一致する保証はないため
@@ -63,7 +65,9 @@ class Planner():
             self.__vertex_list.append(vertex)
             vertex_dict[v["id"]] = vertex
         self.__destination_num = len([x for x in self.__vertex_list if x.get_is_destination()])
-
+        rospy.loginfo("Vertex list: %s" % [[v.get_vertex_id(), v.get_position(), v.get_is_destination()] for v in self.__vertex_list])
+        rospy.loginfo("Destination num: %d" % self.__destination_num)
+        rospy.loginfo("Vertex dict: %s" % {key: vertex_dict[key].get_vertex_id() for key in vertex_dict})
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
         linked_vertex_flag = dict()
@@ -80,7 +84,9 @@ class Planner():
                 key = FLAG_STR % (lv, v["id"])
                 linked_vertex_flag[key] = True
                 edge_counter += 1
+        rospy.loginfo("Linked vertex flag %s" % linked_vertex_flag)
         rospy.loginfo("Edge num: %d" % edge_counter)
+        rospy.loginfo("End planner init_graph function")
 
     def __calc_all_patterns(self, start_vertex_id=0):
         destination_id_list = []
@@ -198,6 +204,7 @@ class Vertex:
         self.__y = y
         self.__is_destination = is_destination
         self.__vertex_id = vertex_id
+        rospy.loginfo("Create Vertex id:%s x:%s y:%s" % (str(vertex_id), str(x), str(y)))
     
     def set_edge(self, edge):
         if edge in self.__edge_list:
@@ -223,6 +230,7 @@ class Edge:
         self.__cost = self.__calc_cost()
         vertex_a.set_edge(self)
         vertex_b.set_edge(self)
+        rospy.loginfo("Linked %s to %s" % (vertex_a.get_vertex_id(), vertex_b.get_vertex_id()))
 
     def get_opposite_vertex(self, my_vertex):
         if not my_vertex in self.__vertex_list:
