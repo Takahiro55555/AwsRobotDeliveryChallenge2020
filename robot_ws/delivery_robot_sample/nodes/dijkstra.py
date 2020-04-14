@@ -13,7 +13,6 @@ import time
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Log
-import heapq
 import itertools
 
 
@@ -121,14 +120,15 @@ class Planner():
         prev_vertex_dict[start_vertex] = Vertex(None, None, None)
         queue = []
         # START vertex をキューにプッシュ
-        heapq.heappush(queue, start_vertex)
+        queue.append(start_vertex)
         arrived_destination = []
         arrived_destination.append(start_vertex)
 
         while True:
             # 確定した vertex から遷移可能な vertex のうち
             # 最小コストと遷移先ノードを min_dist_dict と prev_node_dict に設定
-            vertex = heapq.heappop(queue)
+            queue.sort(key=lambda v: min_dist_dict[v])
+            vertex = queue.pop(0)
 
             # GOAL
             if vertex.get_is_destination():
@@ -171,11 +171,11 @@ class Planner():
 			        # コストが小さかった場合，最小コストを更新
                     if tmp_d < min_dist_dict[arrival_vertex]:
                         min_dist_dict[arrival_vertex] = tmp_d
-                        heapq.heappush(queue, arrival_vertex)
+                        queue.append(arrival_vertex)
                         prev_vertex_dict[arrival_vertex] = prev_vertex
                 else:
                     min_dist_dict[arrival_vertex] = tmp_d
-                    heapq.heappush(queue, arrival_vertex)
+                    queue.append(arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
 
 class Vertex:
