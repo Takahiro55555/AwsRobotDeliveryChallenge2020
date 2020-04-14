@@ -25,7 +25,6 @@ class Planner():
             "/path", String, queue_size=1)
 
         self.__shortest_path_dict = {}
-        time.sleep(10)
         self.__vertex_list_param = rospy.get_param("/vertex_list")
         rospy.loginfo("vertex list from rosparam: %s" % self.__vertex_list_param)
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
@@ -102,6 +101,7 @@ class Planner():
                     start_vertex = vertex
         # すべての巡回経路を算出
         all_patterns = map(list, itertools.permutations(destination_id_list))
+        rospy.loginfo("All patterns: %s" % all_patterns)
         mini_cost = float("inf")
         mini_cost_path = None
         # 最小となる巡回経路を算出する
@@ -127,6 +127,7 @@ class Planner():
             full_path.extend(half_path[1:])
         rospy.loginfo("Destination path: %s" % mini_cost_path)
         rospy.loginfo("Full path: %s" % map(lambda x: x.get_vertex_id(), full_path))
+        rospy.loginfo("Shortest path dict: %s" % {key:{'path':[v.get_vertex_id() for v in self.__shortest_path_dict[key]['path']], 'cost':self.__shortest_path_dict[key]['cost']} for key in self.__shortest_path_dict})
         return full_path
 
     def __dijkstra_planner(self, start_vertex):
@@ -146,6 +147,9 @@ class Planner():
         while True:
             # 確定した vertex から遷移可能な vertex のうち
             # 最小コストと遷移先ノードを min_dist_dict と prev_node_dict に設定
+            rospy.loginfo("Queue: %s" % [min_dist_dict[v] for v in queue])
+            queue.sort(key=lambda v: min_dist_dict[v])
+            rospy.loginfo("Sorted Queue: %s" % [min_dist_dict[v] for v in queue])
             vertex = heapq.heappop(queue)
 
             # GOAL
@@ -195,7 +199,6 @@ class Planner():
                     min_dist_dict[arrival_vertex] = tmp_d
                     heapq.heappush(queue, arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
-
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
