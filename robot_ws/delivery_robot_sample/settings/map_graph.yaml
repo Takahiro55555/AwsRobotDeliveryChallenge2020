@@ -50,7 +50,7 @@ vertex_list:
       - 7
       
   - id: 6
-    x: 5.5000
+    x: 5.0000
     y: 1.3000
     is_destination: true
     linked_vertex_list:

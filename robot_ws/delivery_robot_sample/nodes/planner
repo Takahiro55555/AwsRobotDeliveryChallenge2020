@@ -22,17 +22,25 @@ class Planner():
     def __init__(self):
         self.__path_pub = rospy.Publisher(
             "/path", String, queue_size=1)
-
+        self._commander_sub = rospy.Subscriber(
+            "/commander/meta_info", String, self.__commander_cb, queue_size=1)
         self.__shortest_path_dict = {}
         self.__vertex_list_param = rospy.get_param("/vertex_list")
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
 
     def main(self):
-        full_path = self.__calc_all_patterns(start_vertex_id=0)
-        for _ in range(10):
-            self.__send_path(full_path)
-            time.sleep(2)
+        # full_path = self.__calc_all_patterns(start_vertex_id=0)
+        # for _ in range(10):
+        #     self.__send_path(full_path)
+        #     time.sleep(2)
         rospy.spin()
+
+    def __commander_cb(self, data):
+        payload = json.loads(data.data)
+        if "is_started" in payload and payload["is_started"]:
+            full_path = self.__calc_all_patterns(start_vertex_id=0)
+            self.__send_path(full_path)
+
 
     def __send_path(self, full_path):
         position_full_path = []
