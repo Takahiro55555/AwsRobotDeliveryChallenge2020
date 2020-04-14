@@ -26,13 +26,13 @@ class Planner():
 
         self.__shortest_path_dict = {}
         self.__vertex_list_param = rospy.get_param("/vertex_list")
-        rospy.loginfo("vertex list from rosparam: %s" % self.__vertex_list_param)
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
 
     def main(self):
-        rospy.loginfo("Starting planner main function")
         full_path = self.__calc_all_patterns(start_vertex_id=0)
-        self.__send_path(full_path)
+        for _ in range(10):
+            self.__send_path(full_path)
+            time.sleep(2)
         rospy.spin()
 
     def __send_path(self, full_path):
@@ -48,12 +48,10 @@ class Planner():
             ))
 
         # 作成した座標データをCommander Node に送信する
-        # rospy.loginfo("[On planner][position_full_path] %s" % json.dumps(position_full_path))
         self.__path_pub.publish(json.dumps(position_full_path))
 
 
     def __init_graph(self):
-        rospy.loginfo("Starting planner init_graph function")
         # Vertex を生成
         self.__vertex_list = []
         vertex_dict = {}  # NOTE: __vertex_list_param のインデックスと vertex_id が一致する保証はないため
@@ -64,9 +62,6 @@ class Planner():
             self.__vertex_list.append(vertex)
             vertex_dict[v["id"]] = vertex
         self.__destination_num = len([x for x in self.__vertex_list if x.get_is_destination()])
-        rospy.loginfo("Vertex list: %s" % [[v.get_vertex_id(), v.get_position(), v.get_is_destination()] for v in self.__vertex_list])
-        rospy.loginfo("Destination num: %d" % self.__destination_num)
-        rospy.loginfo("Vertex dict: %s" % {key: vertex_dict[key].get_vertex_id() for key in vertex_dict})
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
         linked_vertex_flag = dict()
@@ -83,9 +78,6 @@ class Planner():
                 key = FLAG_STR % (lv, v["id"])
                 linked_vertex_flag[key] = True
                 edge_counter += 1
-        rospy.loginfo("Linked vertex flag %s" % linked_vertex_flag)
-        rospy.loginfo("Edge num: %d" % edge_counter)
-        rospy.loginfo("End planner init_graph function")
 
     def __calc_all_patterns(self, start_vertex_id=0):
         destination_id_list = []
@@ -101,7 +93,6 @@ class Planner():
                     start_vertex = vertex
         # すべての巡回経路を算出
         all_patterns = map(list, itertools.permutations(destination_id_list))
-        rospy.loginfo("All patterns: %s" % all_patterns)
         mini_cost = float("inf")
         mini_cost_path = None
         # 最小となる巡回経路を算出する
@@ -127,7 +118,6 @@ class Planner():
             full_path.extend(half_path[1:])
         rospy.loginfo("Destination path: %s" % mini_cost_path)
         rospy.loginfo("Full path: %s" % map(lambda x: x.get_vertex_id(), full_path))
-        rospy.loginfo("Shortest path dict: %s" % {key:{'path':[v.get_vertex_id() for v in self.__shortest_path_dict[key]['path']], 'cost':self.__shortest_path_dict[key]['cost']} for key in self.__shortest_path_dict})
         return full_path
 
     def __dijkstra_planner(self, start_vertex):
@@ -147,9 +137,7 @@ class Planner():
         while True:
             # 確定した vertex から遷移可能な vertex のうち
             # 最小コストと遷移先ノードを min_dist_dict と prev_node_dict に設定
-            rospy.loginfo("Queue: %s" % [min_dist_dict[v] for v in queue])
             queue.sort(key=lambda v: min_dist_dict[v])
-            rospy.loginfo("Sorted Queue: %s" % [min_dist_dict[v] for v in queue])
             vertex = heapq.heappop(queue)
 
             # GOAL
@@ -173,9 +161,6 @@ class Planner():
                     self.__shortest_path_dict[key] = result
                     arrived_destination.append(vertex)
                     if(len(arrived_destination) >= self.__destination_num):
-                        rospy.loginfo("start_vertex %d" % start_vertex.get_vertex_id())
-                        rospy.loginfo("min_dist_dict %s" %  {key.get_vertex_id(): min_dist_dict[key] for key in min_dist_dict} )
-                        rospy.loginfo("prev_vertex_dict %s" % {key.get_vertex_id(): prev_vertex_dict[key].get_vertex_id() for key in prev_vertex_dict})
                         return
 
             prev_vertex = vertex
@@ -207,7 +192,6 @@ class Vertex:
         self.__y = y
         self.__is_destination = is_destination
         self.__vertex_id = vertex_id
-        rospy.loginfo("Create Vertex id:%s x:%s y:%s" % (str(vertex_id), str(x), str(y)))
     
     def set_edge(self, edge):
         if edge in self.__edge_list:
@@ -233,7 +217,6 @@ class Edge:
         self.__cost = self.__calc_cost()
         vertex_a.set_edge(self)
         vertex_b.set_edge(self)
-        rospy.loginfo("Linked %s to %s" % (vertex_a.get_vertex_id(), vertex_b.get_vertex_id()))
 
     def get_opposite_vertex(self, my_vertex):
         if not my_vertex in self.__vertex_list:
