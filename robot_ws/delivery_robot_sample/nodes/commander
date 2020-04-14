@@ -36,8 +36,10 @@ class Commander():
             "/awsiot_to_ros", String, queue_size=1)
         self._twugo_method_pub = rospy.Publisher(
             "/twugo_method", String, queue_size=1)
+        self._planner_pub = rospy.Publisher(
+            "/commander/meta_info", String, queue_size=1)
 
-        self._current_step = 0
+        self._current_step = None
         self._step = []
         self._is_started = False
         self._is_sended = False
@@ -54,6 +56,9 @@ class Commander():
                 self._is_sended = False
                 self._is_goal = False
                 self._current_step = 0
+                planner_payload = {}
+                planner_payload["is_started"] = True
+                self._planner_pub.publish(json.dumps(planner_payload))
 
     def path_cb(self, data):
         payload = json.loads(data.data)
@@ -64,6 +69,8 @@ class Commander():
     def odom_cb(self, data):
         try:
             payload = {}
+            if self._current_step == None:
+                return
             if self._is_goal:
                 return
             if not self._is_started:
