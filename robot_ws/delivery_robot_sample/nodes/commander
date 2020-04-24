@@ -57,7 +57,7 @@ class Commander():
                 self._is_goal = False
                 self._current_step = 0
                 planner_payload = {}
-                planner_payload["is_started"] = True
+                planner_payload["is_started"] = self._is_started
                 self._planner_pub.publish(json.dumps(planner_payload))
 
     def path_cb(self, data):
@@ -86,6 +86,12 @@ class Commander():
             error = ((r_x - s_x)**2 + (r_y - s_y)**2)
             
             if error < self._step[self._current_step]["tolerance"]**2:
+                planner_payload = dict(
+                    is_destination=self._step[self._current_step]["is_destination"],
+                    vertex_id=self._step[self._current_step]["vertex_id"]
+                )
+                self._planner_pub.publish(json.dumps(planner_payload))
+                
                 self._current_step += 1
                 self._is_sended = False
                 rospy.loginfo("Current step: %d" % self._current_step)
@@ -94,6 +100,7 @@ class Commander():
                     payload["is_goal"] = self._is_goal
                     self._twugo_method_pub.publish(json.dumps(payload))
                     rospy.loginfo("Is Goal!!!!!!!!")
+                
 
         except Exception as e:
             rospy.logwarn("command publisher request failed")
