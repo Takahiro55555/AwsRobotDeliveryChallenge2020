@@ -17,6 +17,18 @@
 ### img_proc
 カメラに映った画像を表示するノードです。（現在未使用）
 
+## 設定ファイルに関して
+設定ファイルは以下のディレクトリにあります。
+```
+robot_ws/delivery_robot_sample/settings/
+```
+
+### map_graph.yaml
+障害物が無い状態のマップ情報を設定しています。
+
+### step.yaml
+予選で使用した走行ルートを設定しています。
+
 ## メンバー紹介
 * [Takahiro55555](https://github.com/Takahiro55555)
 * [twugo](https://github.com/twugo)
