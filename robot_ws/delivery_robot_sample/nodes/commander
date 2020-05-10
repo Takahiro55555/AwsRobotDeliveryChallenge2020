@@ -13,13 +13,8 @@ import rospy
 import json
 import time
 from std_msgs.msg import String
-# from tf.transformations import euler_from_quaternion, quaternion_from_euler
-# from tf import TransformListener
 from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Log
-# import actionlib
-# from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-# from geometry_msgs.msg import Quaternion
 
 
 class Commander():
