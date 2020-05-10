@@ -40,6 +40,14 @@ class Planner():
         # rospy.loginfo("Before Destinations: %s" % [key for key in self.__vertex_dict if self.__vertex_dict[key].get_is_destination()])
         if "is_destination" in payload and payload["is_destination"]:
             self.__vertex_dict[payload["vertex_id"]].set_is_destination_false()
+        # 特定のVertexに到着したら新たなVertexを追加して再計算（経路計算の最中は走行を一時停止する必要があるかも）
+        if "vertex_id" in payload and payload["vertex_id"] == 1:
+            new_v = self.__generate_new_vertex(1.6011, 0.4159)
+            v1 = self.__vertex_dict[1]
+            v2 = self.__vertex_dict[2]
+            self.__insert_vertex(v1, v2, new_v)
+            full_path = self.__calc_all_patterns(start_vertex_id=new_v.get_vertex_id())
+            self.__send_path(full_path)
         # rospy.loginfo("After Destinations: %s" % [key for key in self.__vertex_dict if self.__vertex_dict[key].get_is_destination()])
         
     def __send_path(self, full_path):
@@ -57,7 +65,6 @@ class Planner():
 
         # 作成した座標データをCommander Node に送信する
         self.__path_pub.publish(json.dumps(position_full_path))
-
 
     def __init_graph(self):
         # Vertex を生成
@@ -85,7 +92,8 @@ class Planner():
 
     def __calc_all_patterns(self, start_vertex_id=0):
         destination_id_list = []
-        start_vertex = None
+        start_vertex = self.__vertex_dict[start_vertex_id]
+        start_vertex.set_is_destination_true()
         # 目的地となるvertex_idを取得する
         for vertex in self.__vertex_dict.values():
             if vertex.get_is_destination():
@@ -93,8 +101,8 @@ class Planner():
                 vertex_id = vertex.get_vertex_id()
                 if vertex_id != start_vertex_id:
                     destination_id_list.append(vertex_id)
-                else:
-                    start_vertex = vertex
+                # else:
+                #     start_vertex = vertex
         # すべての巡回経路を算出
         all_patterns = map(list, itertools.permutations(destination_id_list))
         mini_cost = float("inf")
@@ -189,6 +197,47 @@ class Planner():
                     queue.append(arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
 
+    def __generate_new_vertex(self, x, y):
+        """新しいvertexを生成し、__vertex_dictに追加する
+
+        Arguments:
+            x {float} -- 生成したいvertexのx座標
+            y {float} -- 生成したいvertexのy座標
+
+        Returns:
+            [Vertex] -- 生成したvertex
+        """
+        vertex_id = max(self.__vertex_dict.keys()) + 1
+        self.__vertex_dict[vertex_id] = Vertex(vertex_id, x, y)
+        return self.__vertex_dict[vertex_id]
+
+    def __insert_vertex(self, vertex1, vertex2, new_vertex):
+        """同一のEdgeで直接接続されたVertex間に新たなVertexを追加する
+
+        Arguments:
+            vertex1 {Vertex} -- Vertex2と同一のEdgeで接続されている
+            vertex2 {Vertex} -- Vertex1と同一のEdgeで接続されている
+            new_vertex {Vertex} -- Vertex1とVertex2間に追加するVertex
+        """
+        edge_list1 = vertex1.get_edge_list()
+        link_edge = None
+
+        # vertex1とvertex2が直接接続されているかどうかを確認する
+        for edge in edge_list1:
+            vertex = edge.get_opposite_vertex(vertex1)
+            if vertex == vertex2:
+                link_edge = edge
+                break
+        if link_edge == None:
+            rospy.logerr("Vertex%d and Vertex%d is not directly linked." % (vertex1.get_vertex_id(), vertex2.get_vertex_id()))
+            return
+
+        vertex1.remove_edge(link_edge)
+        vertex2.remove_edge(link_edge)
+        Edge(vertex1, new_vertex)
+        Edge(vertex2, new_vertex)
+
+
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
         self.__edge_list = []
@@ -221,6 +270,9 @@ class Vertex:
 
     def set_is_destination_false(self):
         self.__is_destination = False
+    
+    def set_is_destination_true(self):
+        self.__is_destination = True
 
 
 class Edge:
