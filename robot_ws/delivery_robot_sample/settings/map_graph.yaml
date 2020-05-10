@@ -2,7 +2,7 @@ vertex_list:
   - id: 0
     x: 0.0000
     y: 0.0000
-    is_destination: true
+    is_destination: false
     linked_vertex_list:
       - 1
 

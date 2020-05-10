@@ -86,6 +86,9 @@ class Commander():
                     vertex_id=self._step[self._current_step]["vertex_id"]
                 )
                 self._planner_pub.publish(json.dumps(planner_payload))
+
+                if self._step[self._current_step]["is_destination"]:
+                    rospy.loginfo("HELLO!!! This is Amazon!!!!")
                 
                 self._current_step += 1
                 self._is_sended = False

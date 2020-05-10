@@ -36,10 +36,12 @@ class Planner():
         if "is_started" in payload and payload["is_started"]:
             full_path = self.__calc_all_patterns(start_vertex_id=0)
             self.__send_path(full_path)
+            return
 
         # rospy.loginfo("Before Destinations: %s" % [key for key in self.__vertex_dict if self.__vertex_dict[key].get_is_destination()])
-        if "is_destination" in payload and payload["is_destination"]:
+        if "vertex_id" in payload:
             self.__vertex_dict[payload["vertex_id"]].set_is_destination_false()
+            self.__vertex_dict[payload["vertex_id"]].set_is_via_point_false()
         # 特定のVertexに到着したら新たなVertexを追加して再計算（経路計算の最中は走行を一時停止する必要があるかも）
         if "vertex_id" in payload and payload["vertex_id"] == 1:
             new_v = self.__generate_new_vertex(1.6011, 0.4159)
@@ -74,7 +76,6 @@ class Planner():
                 rospy.logwarn("[Class: %s]: vertex id:%d is already exists" % (self.__class__.__name__, v["id"]))
             vertex = Vertex(v["id"], v["x"], v["y"], v["is_destination"])
             self.__vertex_dict[v["id"]] = vertex
-        self.__destination_num = len([x for x in self.__vertex_dict.values() if x.get_is_destination()])
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
         linked_vertex_flag = dict()
@@ -93,10 +94,11 @@ class Planner():
     def __calc_all_patterns(self, start_vertex_id=0):
         destination_id_list = []
         start_vertex = self.__vertex_dict[start_vertex_id]
-        start_vertex.set_is_destination_true()
+        start_vertex.set_is_via_point_true()
+        self.__via_point_num = len([x for x in self.__vertex_dict.values() if x.get_is_via_point()])
         # 目的地となるvertex_idを取得する
         for vertex in self.__vertex_dict.values():
-            if vertex.get_is_destination():
+            if vertex.get_is_via_point():
                 self.__dijkstra_planner(vertex)
                 vertex_id = vertex.get_vertex_id()
                 if vertex_id != start_vertex_id:
@@ -143,8 +145,8 @@ class Planner():
         queue = []
         # START vertex をキューにプッシュ
         queue.append(start_vertex)
-        arrived_destination = []
-        arrived_destination.append(start_vertex)
+        arrived_via_points = []
+        arrived_via_points.append(start_vertex)
 
         while True:
             # 確定した vertex から遷移可能な vertex のうち
@@ -153,9 +155,9 @@ class Planner():
             vertex = queue.pop(0)
 
             # GOAL
-            if vertex.get_is_destination():
+            if vertex.get_is_via_point():
                 # goalノードには複数回行くことがあるのでリストとか作ってlength使う?
-                if not vertex in arrived_destination:
+                if not vertex in arrived_via_points:
                     path = []
                     tmp_vertex = vertex
                     while True:
@@ -171,8 +173,8 @@ class Planner():
                     self.__shortest_path_dict[key] = result
                     key = "%d-%d" % (path[-1].get_vertex_id(), path[0].get_vertex_id())
                     self.__shortest_path_dict[key] = result
-                    arrived_destination.append(vertex)
-                    if(len(arrived_destination) >= self.__destination_num):
+                    arrived_via_points.append(vertex)
+                    if(len(arrived_via_points) >= self.__via_point_num):
                         return
 
             prev_vertex = vertex
@@ -244,6 +246,7 @@ class Vertex:
         self.__x = x
         self.__y = y
         self.__is_destination = is_destination
+        self.__is_via_point = is_destination  # スタート地点を除いて、基本的にis_destinationとis_destinationは同じ
         self.__vertex_id = vertex_id
     
     def set_edge(self, edge):
@@ -261,6 +264,9 @@ class Vertex:
 
     def get_is_destination(self):
         return self.__is_destination
+
+    def get_is_via_point(self):
+        return self.__is_via_point
     
     def get_edge_list(self):
         return self.__edge_list
@@ -271,9 +277,11 @@ class Vertex:
     def set_is_destination_false(self):
         self.__is_destination = False
     
-    def set_is_destination_true(self):
-        self.__is_destination = True
+    def set_is_via_point_true(self):
+        self.__is_via_point = True
 
+    def set_is_via_point_false(self):
+        self.__is_via_point = False
 
 class Edge:
     def __init__(self, vertex_a, vertex_b):
