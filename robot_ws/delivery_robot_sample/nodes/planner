@@ -29,10 +29,6 @@ class Planner():
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
 
     def main(self):
-        # full_path = self.__calc_all_patterns(start_vertex_id=0)
-        # for _ in range(10):
-        #     self.__send_path(full_path)
-        #     time.sleep(2)
         rospy.spin()
 
     def __commander_cb(self, data):
@@ -65,16 +61,13 @@ class Planner():
 
     def __init_graph(self):
         # Vertex を生成
-        self.__vertex_list = []  # HACK: これは、self.__vertex_dict に置きかる
-        # NOTE: __vertex_list_param のインデックスと vertex_id が一致する保証はないため
         self.__vertex_dict = {}
         for v in self.__vertex_list_param:
             if v["id"] in self.__vertex_dict:
                 rospy.logwarn("[Class: %s]: vertex id:%d is already exists" % (self.__class__.__name__, v["id"]))
             vertex = Vertex(v["id"], v["x"], v["y"], v["is_destination"])
-            self.__vertex_list.append(vertex)
             self.__vertex_dict[v["id"]] = vertex
-        self.__destination_num = len([x for x in self.__vertex_list if x.get_is_destination()])
+        self.__destination_num = len([x for x in self.__vertex_dict.values() if x.get_is_destination()])
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
         linked_vertex_flag = dict()
@@ -84,8 +77,6 @@ class Planner():
                 key = FLAG_STR % (v["id"], lv)
                 if key in linked_vertex_flag:
                     continue
-                # NOTE: __vertex_list_param のインデックスと vertex_id が一致する保証はないため
-                #       vertex_id　から当該 Vertex を確実に取得できる self.__vertex_dict を利用する
                 Edge(self.__vertex_dict[v["id"]], self.__vertex_dict[lv])
                 linked_vertex_flag[key] = True
                 key = FLAG_STR % (lv, v["id"])
@@ -96,7 +87,7 @@ class Planner():
         destination_id_list = []
         start_vertex = None
         # 目的地となるvertex_idを取得する
-        for vertex in self.__vertex_list:
+        for vertex in self.__vertex_dict.values():
             if vertex.get_is_destination():
                 self.__dijkstra_planner(vertex)
                 vertex_id = vertex.get_vertex_id()
@@ -200,7 +191,7 @@ class Planner():
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
-        self.__edge_list = []  # 
+        self.__edge_list = []
         self.__x = x
         self.__y = y
         self.__is_destination = is_destination
