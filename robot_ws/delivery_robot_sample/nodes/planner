@@ -42,7 +42,9 @@ class Planner():
         if "vertex_id" in payload:
             self.__vertex_dict[payload["vertex_id"]].set_is_destination_false()
             self.__vertex_dict[payload["vertex_id"]].set_is_via_point_false()
-        # 特定のVertexに到着したら新たなVertexを追加して再計算（経路計算の最中は走行を一時停止する必要があるかも）
+        
+        # NOTE: 障害物を検知し、障害物をよけるために新たなVertexを追加する場面を想定
+        #       特定のVertexに到着したら新たなVertexを追加して再計算（経路計算の最中は走行を一時停止する必要があるかも）
         if "vertex_id" in payload and payload["vertex_id"] == 1:
             new_v = self.__generate_new_vertex(1.6011, 0.4159)
             v1 = self.__vertex_dict[1]
@@ -152,6 +154,8 @@ class Planner():
             # 確定した vertex から遷移可能な vertex のうち
             # 最小コストと遷移先ノードを min_dist_dict と prev_node_dict に設定
             queue.sort(key=lambda v: min_dist_dict[v])
+            
+            # FIXME: ROSを再起動しないままブラウザのSTARTボタンを複数回押すと、index out of range になる
             vertex = queue.pop(0)
 
             # GOAL
