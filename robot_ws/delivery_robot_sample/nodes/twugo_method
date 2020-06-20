@@ -31,10 +31,13 @@ class TwugoMethod():
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._twugo_method_sub = rospy.Subscriber(
             "/twugo_method", String, self.set_goal, queue_size=1)
+        self._restart_method_sub = rospy.Subscriber(
+            "/twugo_method/restart", String, self.restart_cb, queue_size=1)
         self._twist = Twist()
         self._next_synctime = time.time()
         self._is_stoped = False
         self._is_started = False
+        self._is_before_destination = False  # 目標地点に到達する前に停止しないようにするためのフラグ
         self._turn_p = 0.95
         self._x_goal = 0
         self._y_goal = 0
@@ -49,11 +52,24 @@ class TwugoMethod():
     def set_goal(self, data):
         self._is_started = True
         payload = json.loads(data.data)
-        if  payload["is_goal"]:
+        if payload["is_goal"]:
             self._is_started = False
             return
+        elif self._is_before_destination:
+            self._is_started = False
+        
+        self._is_before_destination = payload["is_destination"]
         self._x_goal = payload["x"]
         self._y_goal = payload["y"]
+
+    def restart_cb(self, data):
+        """
+        チェックポイントで停止しているロボットを再スタートさせるためのハンドラ
+
+        以下、再スタートさせる際のコマンドの例
+        $ rostopic pub --once -v /twugo_method/restart std_msgs/String '{data: "hoge"}'
+        """
+        self._is_started = True
 
     def odom_cb(self, data):
         self._next_synctime = time.time() + 0.3
