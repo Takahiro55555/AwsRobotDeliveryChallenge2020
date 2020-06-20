@@ -74,6 +74,7 @@ class Commander():
                 payload["x"] = self._step[self._current_step]["x"]
                 payload["y"] = self._step[self._current_step]["y"]
                 payload["is_goal"] = self._is_goal
+                payload["is_destination"] = self._step[self._current_step]["is_destination"]
                 self._twugo_method_pub.publish(json.dumps(payload))
                 self._is_sended = True
             s_x, s_y = self._step[self._current_step]["x"], self._step[self._current_step]["y"]
