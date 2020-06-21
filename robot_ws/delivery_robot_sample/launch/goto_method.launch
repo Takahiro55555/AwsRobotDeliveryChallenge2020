@@ -1,0 +1,5 @@
+<launch>
+  <param name="app_setting_file_name" value="$(optenv APP_SETTING_FILE use_default)"/>
+  <param name="app_setting_file_name_default" value="$(find delivery_robot_sample)/settings/settings.yaml"/>
+  <node pkg="delivery_robot_sample" type="goto_method" name="goto_method" output="screen"/>
+</launch>
