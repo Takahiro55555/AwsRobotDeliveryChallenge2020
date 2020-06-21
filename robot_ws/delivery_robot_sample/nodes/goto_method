@@ -1,0 +1,122 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+
+# Copy right 2020 Takuya TWUGO all right reseved
+
+#
+# This node enable you to control robot moving velocity from cloud using AWS IoT.
+#
+#
+
+import rospy
+import json
+from geometry_msgs.msg import Twist
+from std_msgs.msg import String
+from nav_msgs.msg import Odometry
+import time
+import tf
+from geometry_msgs.msg import Vector3
+import math
+
+LINERAR_MAX_SPEED = 0.22
+ANGULER_MAX_SPEED = 2.84
+
+
+class TwugoMethod():
+    def __init__(self):
+        self._cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self._odom_sub = rospy.Subscriber(
+            "/odom", Odometry, self.odom_cb, queue_size=1)
+        self._twugo_method_sub = rospy.Subscriber(
+            "/twugo_method", String, self.set_goal, queue_size=1)
+        self._restart_method_sub = rospy.Subscriber(
+            "/twugo_method/restart", String, self.restart_cb, queue_size=1)
+        self._awsiot_to_ros_pub = rospy.Publisher(
+            "/awsiot_to_ros", String, queue_size=1)
+        self._twist = Twist()
+        self._next_synctime = time.time()
+        self._is_stoped = False
+        self._is_started = False
+        self._is_before_destination = False  # 目標地点に到達する前に停止しないようにするためのフラグ
+        self._turn_p = 0.95
+        self._x_goal = 0
+        self._y_goal = 0
+
+    def main(self):
+        while not rospy.is_shutdown():
+            d = self._next_synctime - time.time()
+            if d <= 0:
+                continue
+            time.sleep(d)
+
+    def set_goal(self, data):
+        self._is_started = True
+        payload = json.loads(data.data)
+        if payload["is_goal"]:
+            self._is_started = False
+            return
+        elif self._is_before_destination:
+            self._is_started = False
+        
+        self._is_before_destination = payload["is_destination"]
+        self._x_goal = payload["x"]
+        self._y_goal = payload["y"]
+
+        if not self._is_started:
+            return
+
+        # GOTO
+        request_id =  time.time()
+        payload = {}
+        payload["command"] = "navigation"
+        payload["action"] = "setGoal"
+        payload["request_id"] = request_id
+        payload["x"] = self._x_goal
+        payload["y"] = self._y_goal
+        payload["yaw"] = 0
+        self._awsiot_to_ros_pub.publish(json.dumps({"payload":payload}))
+
+
+    def restart_cb(self, data):
+        """
+        チェックポイントで停止しているロボットを再スタートさせるためのハンドラ
+
+        以下、再スタートさせる際のコマンドの例
+        $ rostopic pub --once -v /twugo_method/restart std_msgs/String '{data: "hoge"}'
+        """
+        self._is_started = True
+        # GOTO
+        request_id =  time.time()
+        payload = {}
+        payload["command"] = "navigation"
+        payload["action"] = "setGoal"
+        payload["request_id"] = request_id
+        payload["x"] = self._x_goal
+        payload["y"] = self._y_goal
+        payload["yaw"] = 0
+        self._awsiot_to_ros_pub.publish(json.dumps({"payload":payload}))
+        rospy.loginfo("[goto_method]: restarted (%f, %f)" % (self._x_goal, self._y_goal))
+
+
+    def odom_cb(self, data):
+        self._next_synctime = time.time() + 0.3
+        if not self._is_started and not self._is_stoped:
+            self._is_stoped = True
+        if not self._is_started:
+            return
+        self._is_stoped = False
+
+    @staticmethod
+    def sign(x):
+        return (x > 0) - (x < 0)
+
+
+def main():
+    rospy.init_node('twugo_method')
+    remote_controller = TwugoMethod()
+    remote_controller.main()
+
+
+if __name__ == '__main__':
+    main()

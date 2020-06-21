@@ -45,13 +45,13 @@ class Planner():
         
         # NOTE: 障害物を検知し、障害物をよけるために新たなVertexを追加する場面を想定
         #       特定のVertexに到着したら新たなVertexを追加して再計算（経路計算の最中は走行を一時停止する必要があるかも）
-        if "vertex_id" in payload and payload["vertex_id"] == 1:
-            new_v = self.__generate_new_vertex(1.6011, 0.4159)
-            v1 = self.__vertex_dict[1]
-            v2 = self.__vertex_dict[2]
-            self.__insert_vertex(v1, v2, new_v)
-            full_path = self.__calc_all_patterns(start_vertex_id=new_v.get_vertex_id())
-            self.__send_path(full_path)
+        # if "vertex_id" in payload and payload["vertex_id"] == 1:
+        #     new_v = self.__generate_new_vertex(1.6011, 0.4159)
+        #     v1 = self.__vertex_dict[1]
+        #     v2 = self.__vertex_dict[2]
+        #     self.__insert_vertex(v1, v2, new_v)
+        #     full_path = self.__calc_all_patterns(start_vertex_id=new_v.get_vertex_id())
+        #     self.__send_path(full_path)
         # rospy.loginfo("After Destinations: %s" % [key for key in self.__vertex_dict if self.__vertex_dict[key].get_is_destination()])
         
     def __send_path(self, full_path):
