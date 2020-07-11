@@ -64,7 +64,7 @@
         <shadows>false</shadows>
     </scene>
     
-    <include>
+    <!-- <include>
       <uri>model://models/unit_cylinder</uri>
       <pose>3.31506 0.858347 0 0 0 0</pose>
       <name>unit_cylinder1</name>
@@ -93,6 +93,6 @@
       <uri>model://models/bus1</uri>
       <pose>4.33532 2.22348 0 0 0 -1.56296</pose>
       <name>bus3</name>
-    </include>
+    </include> -->
   </world>
 </sdf>
