@@ -71,7 +71,15 @@
           payload["action"] = "start";
           payload["request_id"] = request_id
           deviceIot.publish(gm_publish_topic, JSON.stringify(payload));
-          console.log(payload);
+        },
+        restart_game: function () {
+          let payload = {};
+          console.log("Game restart!"); 
+          request_id =  (new Date()).getTime();
+          payload["command"] = "game";
+          payload["action"] = "restart";
+          payload["request_id"] = request_id
+          deviceIot.publish(gm_publish_topic, JSON.stringify(payload));
         }
       }
     })

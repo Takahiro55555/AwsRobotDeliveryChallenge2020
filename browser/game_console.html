@@ -107,6 +107,23 @@
   border-radius: 5px;
   box-shadow: 0 2px 1px rgba(136,136,136,1);
 }
+
+.restart_button {
+  position: absolute;
+  top: 250px;
+  left: 10px;
+  width: 280px;
+  height: 70px;
+  font-size: 1.5em;
+  color: #222;
+  border-style:none;
+  background-color:#eee;
+  -moz-border-radius: 5px;
+  -webkit-border-radius: 5px;
+  border-radius: 5px;
+  box-shadow: 0 2px 1px rgba(136,136,136,1);
+}
+
 .button:focus {
 	outline:0;
 }
@@ -127,6 +144,7 @@
     <div class="value_time">{{ LAPTIME }}</div>
     <div class="value_distance">{{ DISTANCE }}</div>
     <div><button class="button start_button" @click="start_game()">Start</font></button></div>
+    <div><button class="button restart_button" @click="restart_game()">Restart</font></button></div>
   </div>
 </div>
 </body>
