@@ -59,10 +59,13 @@ class Planner():
         # vertex_id から 座標を取得しListに格納する
         for v in full_path:
             x, y = v.get_position()
+            tolerance = 0.1
+            if v.get_is_destination():
+                tolerance = 0.05
             position_full_path.append(dict(
                 x = x,
                 y = y,
-                tolerance = 0.15,
+                tolerance = tolerance,
                 is_destination = v.get_is_destination(),
                 vertex_id=v.get_vertex_id()
             ))
