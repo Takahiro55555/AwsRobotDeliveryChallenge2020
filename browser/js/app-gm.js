@@ -71,6 +71,8 @@
           payload["action"] = "start";
           payload["request_id"] = request_id
           deviceIot.publish(gm_publish_topic, JSON.stringify(payload));
+          document.getElementById("start_button").setAttribute("disabled", true);
+          document.getElementById("restart_button").removeAttribute("disabled");
         },
         restart_game: function () {
           let payload = {};
