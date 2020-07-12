@@ -50,7 +50,6 @@ class TwugoMethod():
             time.sleep(d)
 
     def set_goal(self, data):
-        self._is_started = True
         payload = json.loads(data.data)
         if payload["is_goal"]:
             self._is_started = False
@@ -89,7 +88,10 @@ class TwugoMethod():
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
                               math.cos(atan2_tmp - r_ang))
         turn_speed = ang_diff * self._turn_p
+        
         linear_speed = LINERAR_MAX_SPEED*(1-abs(ang_diff)/math.pi)
+        if ang_diff > math.pi/4:
+            linear_speed = 0
 
         self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
         self._twist.angular.z = self.sign(
