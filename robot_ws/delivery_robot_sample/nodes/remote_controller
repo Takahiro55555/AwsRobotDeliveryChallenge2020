@@ -38,6 +38,7 @@ ANGULER_STEP = 0.5 / 3
 class RemoteController():
     def __init__(self):
         self._cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self._twugo_method_pub = rospy.Publisher('/twugo_method', String, queue_size=1)
         self._remote_sub = rospy.Subscriber('/awsiot_to_ros', String, self.awsiot_to_ros_cb, queue_size=1)
         self.twist = Twist()
         self.next_synctime = time.time()
@@ -94,6 +95,7 @@ class RemoteController():
             message_json = json.loads(message.data)
             payload = message_json['payload']
             if 'command' in payload and payload['command'] == "move":
+                self._twugo_method_pub.publish(json.dumps({"is_interrupted": True}))
                 rospy.loginfo("remote_controller Move {}".format(payload['action']))
                 self.action = payload['action']
                 self.sync_action()
