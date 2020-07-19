@@ -8,9 +8,12 @@ import time
 import rospy
 import json
 from std_msgs.msg import String
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
 from rosgraph_msgs.msg import Log
 import itertools
+import cv2
+import numpy as np
+import time
 
 def main():
     rospy.init_node('planner')
@@ -23,13 +26,47 @@ class Planner():
             "/path", String, queue_size=1)
         self.__commander_sub = rospy.Subscriber(
             "/commander/meta_info", String, self.__commander_cb, queue_size=1)
+        self.__map_sub = rospy.Subscriber(
+            "/move_base/global_costmap/costmap", OccupancyGrid, self.__map_cb, queue_size=10)
         self.__shortest_path_dict = {}
         self.__vertex_dict = {} # self.__vertex_dict: vertexのidをキーにvertexを持っている
         self.__vertex_list_param = rospy.get_param("/vertex_list")
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
+        self.__initial_map_data = None
+        self.__combined_map_data = None
+        self.__map_resolution = None
 
     def main(self):
-        rospy.spin()
+        rate = rospy.Rate(1)  # 1Hz
+        while True:
+            if not type(self.__combined_map_data) == type(None):
+                img = np.array(map(lambda x: 255 if x > 90 else 0, self.__combined_map_data), dtype='uint8').reshape(self.map_height, self.map_width)
+                cv2.drawMarker(img, (int(self.map_width/2), int(self.map_height/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
+                # rospy.loginfo("[Map CB] img.shape: %s" % str(img.shape))
+                cv2.imshow('map', img)
+                cv2.waitKey(10)
+            rate.sleep()
+
+    def __map_cb(self, data):
+        rospy.loginfo("[Map CB]")
+        # rospy.loginfo("[Map CB] MetaData: %s" % str(data.header))
+        # rospy.loginfo("[Map CB] MetaData: %s" % str(data.info))
+        # rospy.loginfo("[Map CB] data: %s" % str(data.data))
+        # rospy.loginfo("[Map CB] height: %d, width: %d" % (data.info.height, data.info.width))
+        self.map_height = data.info.height
+        self.map_width = data.info.width
+        self.__map_resolution = data.info.resolution
+        self.__map_origin = data.info.origin.position
+        # if type(self.__initial_map_data) == type(None):
+        #     self.__initial_map_data = np.full(self.map_height*self.map_width, False)
+        #     self.__combined_map_data = self.__initial_map_data.copy()
+        # map_data = np.array(map(lambda x: False if x == -1 else True if x == 100 else False, data.data))
+        # self.__combined_map_data = np.logical_or(self.__combined_map_data, map_data)
+        self.__combined_map_data = data.data
+        # rospy.loginfo("[Map CB] img.shape: %s" % str(img.shape))
+        rospy.loginfo("[Map CB] __map_resolution: %s[Meter/Pixel]" % str(self.__map_resolution))
+        rospy.loginfo("[Map CB] __map_origin: %s" % str(self.__map_origin))
+        # rospy.loginfo("[Map CB] __map_origin: %s" % str(data.))
 
     def __commander_cb(self, data):
         payload = json.loads(data.data)
