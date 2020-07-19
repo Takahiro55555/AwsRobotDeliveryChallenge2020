@@ -51,7 +51,10 @@ class TwugoMethod():
 
     def set_goal(self, data):
         payload = json.loads(data.data)
-        if payload["is_goal"]:
+        if "is_goal" in payload and payload["is_goal"]:
+            self._is_started = False
+            return
+        elif "is_interrupted" in payload and payload["is_interrupted"]:
             self._is_started = False
             return
         elif self._is_before_destination:
