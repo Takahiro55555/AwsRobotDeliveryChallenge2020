@@ -17,26 +17,75 @@ class ObstacleDetector():
     def main(self):
         rate = rospy.Rate(1)  # 1Hz
         while True:
-            if not self.__local_costmap is None:
-                costmap = self.__local_costmap.get_costmap()
-                height, width = self.__local_costmap.get_size()
+            if not self.__initial_global_costmap is None:
+                # costmap = self.__initial_global_costmap.get_costmap()
+                costmap = self.__merge_costmap()
+                height, width = self.__initial_global_costmap.get_size()
                 cv2.drawMarker(costmap, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
                 cv2.imshow('costmap', costmap)
                 cv2.waitKey(10)
             rate.sleep()
+
+
+    def __merge_costmap(self):
+        if self.__initial_global_costmap is None:
+            rospy.logwarn("[Obstacle detector] 'global_costmap' is not set!!!")
+            return
+        if self.__local_costmap is None:
+            rospy.logwarn("[Obstacle detector] 'local_costmap' is not set!!!")
+            return
+        h, w = self.__initial_global_costmap.get_size()
+        blank_global_costmap = np.zeros((h, w, 3), dtype='uint8')
+        global_origin = self.__initial_global_costmap.get_origin()
+        global_resolution = self.__initial_global_costmap.get_resolution()
+        global_costmap = self.__initial_global_costmap.get_costmap()
+        for y in range(h):
+            for x in range(w):
+                blank_global_costmap[y][x][0] = global_costmap[y][x]
+
+        local_costmap = self.__local_costmap.get_costmap()
+        local_origin = self.__local_costmap.get_origin()
+        local_resolution = self.__local_costmap.get_resolution()
+
+        # When merge locam_costmap to blank_global_costmap, this data is need.
+        padding_pix = dict(
+            x = int((local_origin.position.x - global_origin.position.x) / global_resolution),
+            y = int((local_origin.position.y - global_origin.position.y) / global_resolution),
+            z = int((local_origin.position.z - global_origin.position.z) / global_resolution)
+        )
+
+        rospy.loginfo(str(padding_pix))
+
+        if local_resolution == global_resolution :
+            h, w = self.__local_costmap.get_size()
+            for y in range(h):
+                for x in range(w):
+                    blank_global_costmap[padding_pix['y'] + y][padding_pix['x'] + x][1] = local_costmap[y][x]
+        else:
+            # TODO: If resolution is different between global_costmap and local_costmap, we must correspond.
+            rospy.logwarn("[Obstacle detector] resolution is not match")
+            return
+        return blank_global_costmap
+
 
     def __global_costmap_cb(self, data):
         if self.__initial_global_costmap is None:
             self.__initial_global_costmap = Costmap(
                 data.data, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
+        pos = data.info.origin.position
+        ori = data.info.origin.orientation
+        rospy.loginfo("[Global Costmap] Origin (x, y, z) = (%f, %f, %f), Orientation (x, y, z, w) = (%f, %f, %f, %f), Resolution = %f"
+                        % (pos.x, pos.y, pos.z, ori.x, ori.y, ori.z, ori.w, data.info.resolution))
 
     def __local_costmap_cb(self, data):
         self.__local_costmap = Costmap(
                 data.data, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
         pos = data.info.origin.position
-        rospy.loginfo("[Local Costmap] Origin (x, y, z) = (%f, %f, %f)" % (pos.x, pos.y, pos.z))
+        ori = data.info.origin.orientation
+        rospy.loginfo("[Local Costmap] Origin (x, y, z) = (%f, %f, %f), Orientation (x, y, z, w) = (%f, %f, %f, %f), Resolution = %f"
+                        % (pos.x, pos.y, pos.z, ori.x, ori.y, ori.z, ori.w, data.info.resolution))
 
 
 class Costmap():
