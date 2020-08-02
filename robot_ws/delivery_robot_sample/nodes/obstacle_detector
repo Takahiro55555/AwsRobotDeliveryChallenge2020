@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+import rospy
+from nav_msgs.msg import OccupancyGrid
+import cv2
+import numpy as np
+
+class ObstacleDetector():
+    def __init__(self):
+        self.__global_costmap_sub = rospy.Subscriber(
+            "/move_base/global_costmap/costmap", OccupancyGrid, self.__global_costmap_cb, queue_size=1)
+        self.__rocal_costmap_sub = rospy.Subscriber(
+            "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
+        self.__initial_global_costmap = None
+        self.__local_costmap = None
+
+    def main(self):
+        rate = rospy.Rate(1)  # 1Hz
+        while True:
+            if not self.__local_costmap is None:
+                costmap = self.__local_costmap.get_costmap()
+                height, width = self.__local_costmap.get_size()
+                cv2.drawMarker(costmap, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
+                cv2.imshow('costmap', costmap)
+                cv2.waitKey(10)
+            rate.sleep()
+
+    def __global_costmap_cb(self, data):
+        if self.__initial_global_costmap is None:
+            self.__initial_global_costmap = Costmap(
+                data.data, data.info.height, data.info.width,
+                data.info.resolution, data.info.origin)
+
+    def __local_costmap_cb(self, data):
+        self.__local_costmap = Costmap(
+                data.data, data.info.height, data.info.width,
+                data.info.resolution, data.info.origin)
+        pos = data.info.origin.position
+        rospy.loginfo("[Local Costmap] Origin (x, y, z) = (%f, %f, %f)" % (pos.x, pos.y, pos.z))
+
+
+class Costmap():
+    def __init__(self, data, height, width, resolution, origin, threshold=90):
+        self.__data = data
+        self.__height = height
+        self.__width = width
+        self.__resolution = resolution  # The map resolution [m/cell]
+        self.__origin = origin
+        self.__threshold = threshold
+        self.__costmap = np.array(map(lambda x: 255 if x > self.__threshold else 0, self.__data), dtype='uint8').reshape(self.__height, self.__width)
+
+    def get_costmap(self):
+        return self.__costmap
+
+    def get_size(self):
+        return self.__height, self.__width
+
+    def get_resolution(self):
+        return self.__resolution
+
+    def get_origin(self):
+        return self.__origin
+
+
+
+if __name__ == "__main__":
+    rospy.init_node('obstacle_detector')
+    obstacle_detector = ObstacleDetector()
+    obstacle_detector.main()
