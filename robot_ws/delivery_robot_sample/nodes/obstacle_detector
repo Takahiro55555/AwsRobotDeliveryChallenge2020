@@ -60,7 +60,9 @@ class ObstacleDetector():
             h, w = self.__local_costmap.get_size()
             for y in range(h):
                 for x in range(w):
-                    blank_global_costmap[padding_pix['y'] + y][padding_pix['x'] + x][1] = local_costmap[y][x]
+                    if blank_global_costmap[padding_pix['y'] + y][padding_pix['x'] + x][0] == 0:
+                        blank_global_costmap[padding_pix['y'] + y][padding_pix['x'] + x][1] = local_costmap[y][x]
+                    
         else:
             # TODO: If resolution is different between global_costmap and local_costmap, we must correspond.
             rospy.logwarn("[Obstacle detector] resolution is not match")
