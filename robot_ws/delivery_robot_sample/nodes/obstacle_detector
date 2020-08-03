@@ -2,7 +2,9 @@
 
 import rospy
 from nav_msgs.msg import OccupancyGrid
+from sensor_msgs.msg import Image
 import cv2
+from cv_bridge import CvBridge
 import numpy as np
 
 class ObstacleDetector():
@@ -11,6 +13,8 @@ class ObstacleDetector():
             "/move_base/global_costmap/costmap", OccupancyGrid, self.__global_costmap_cb, queue_size=1)
         self.__rocal_costmap_sub = rospy.Subscriber(
             "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
+        self.__costmap_image_pub = rospy.Publisher(
+            "/costmap_image", Image, queue_size=1)
         self.__initial_global_costmap = None
         self.__local_costmap = None
 
@@ -20,10 +24,13 @@ class ObstacleDetector():
             if not self.__initial_global_costmap is None:
                 # costmap = self.__initial_global_costmap.get_costmap()
                 costmap = self.__merge_costmap()
-                height, width = self.__initial_global_costmap.get_size()
-                cv2.drawMarker(costmap, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
-                cv2.imshow('costmap', costmap)
-                cv2.waitKey(10)
+                bridge = CvBridge()
+                cost_image_msg = bridge.cv2_to_imgmsg(costmap, encoding="bgr8")
+                self.__costmap_image_pub.publish(cost_image_msg)
+                # height, width = self.__initial_global_costmap.get_size()
+                # cv2.drawMarker(costmap, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
+                # cv2.imshow('costmap', costmap)
+                # cv2.waitKey(10)
             rate.sleep()
 
 
