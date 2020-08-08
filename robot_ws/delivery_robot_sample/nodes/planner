@@ -96,10 +96,12 @@ class Planner():
                 linked_vertex_flag[key] = True
                 edge_counter += 1
 
-    def __calc_all_patterns(self, start_vertex_id=0):
+    def __calc_all_patterns(self, start_vertex_id=0, goal_vertex_id=0):
         destination_id_list = []
         start_vertex = self.__vertex_dict[start_vertex_id]
+        goal_vertex = self.__vertex_dict[goal_vertex_id]
         start_vertex.set_is_via_point_true()
+        goal_vertex.set_is_via_point_true()
         self.__via_point_num = len([x for x in self.__vertex_dict.values() if x.get_is_via_point()])
         # 目的地となるvertex_idを取得する
         for vertex in self.__vertex_dict.values():
@@ -114,9 +116,17 @@ class Planner():
         all_patterns = map(list, itertools.permutations(destination_id_list))
         mini_cost = float("inf")
         mini_cost_path = None
+        for vertex_id in self.__vertex_dict.keys():
+            key = "%d-%d" % (vertex_id, vertex_id)
+            self.__shortest_path_dict[key] = {
+                        "cost": 0,
+                        "path": []
+                    }
+
         # 最小となる巡回経路を算出する
         for path in all_patterns:
             p = start_vertex_id
+            path.append(goal_vertex_id)  # 最終目的地を設定
             tmp_cost = 0
             for c in path:
                 key = "%d-%d" % (p, c)
