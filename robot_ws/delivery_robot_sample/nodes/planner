@@ -8,9 +8,12 @@ import time
 import rospy
 import json
 from std_msgs.msg import String
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
 from rosgraph_msgs.msg import Log
 import itertools
+import cv2
+import numpy as np
+import time
 
 def main():
     rospy.init_node('planner')
@@ -30,7 +33,9 @@ class Planner():
 
         self.__is_added_vertex = False
     def main(self):
-        rospy.spin()
+        rate = rospy.Rate(1)  # 1Hz
+        while True:
+            rate.sleep()
 
     def __commander_cb(self, data):
         payload = json.loads(data.data)
