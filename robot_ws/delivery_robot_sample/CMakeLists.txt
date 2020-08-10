@@ -70,7 +70,7 @@ catkin_install_python(PROGRAMS
   nodes/location_publisher
   nodes/navigation
   nodes/commander
-  nodes/img_proc
+  nodes/obstacle_detector
   nodes/twugo_method
   nodes/goto_method
   nodes/planner
