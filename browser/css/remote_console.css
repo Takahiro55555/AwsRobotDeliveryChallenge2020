@@ -17,17 +17,19 @@ img.logo {
 }
 
 .console {
-    position: absolute;
+    position: relative;
 }
 
-.static-layer {
+.background-layer {
     position: absolute;
     top: 0px;
     left: 0px;
+    z-index: 0;
 }
 
-.dynamic-layer {
+.front-layer {
     position: absolute;
     top: 0px;
     left: 0px;
+    z-index: 10;
 }

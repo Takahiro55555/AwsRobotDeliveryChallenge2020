@@ -17,6 +17,7 @@ async function getCognitoCredentials() {
     return credentials;
 }
 
+let costMap = null;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
     const deviceIot = awsIot.device({
@@ -32,10 +33,12 @@ async function setupAwsIot() {
         host: iotendpoint
     });
 
-    deviceIot.on('message', function (_topic, payload) {
-        const json = JSON.parse(payload.toString());
-        console.log(json);
-        isUpdated = true;
+    deviceIot.on('message', function (topic, payload) {
+        if (topic == iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed") {
+            costMap = JSON.parse(payload.toString());
+            isBackgroundLayerUpdated = true;
+        }
+        console.log(topic);
     });
 
     deviceIot.subscribe(gm_subscribe_topic, undefined, function (err, granted) {
@@ -47,38 +50,74 @@ async function setupAwsIot() {
     });
 }
 
-setupAwsIot();
+/**** 以下、描画関係 ****/
 
+const consoleWidth = document.getElementById("console").clientWidth;
+const consoleHeight = 600;
 
-const static_layer_sketch = function (p) {
+let isBackgroundLayerUpdated = true;
+const background_layer_sketch = function (p) {
     p.setup = function () {
-        p.createCanvas(700, 700);
+        p.createCanvas(consoleWidth, consoleHeight);
         p.background(200);
     };
 
-    let counter = 0;
     p.draw = function () {
-        p.background(200);
-        p.ellipse(counter, counter, 100, 100);
-        counter++;
-        counter = counter % 700;
+        if (!isBackgroundLayerUpdated) {
+            return;
+        }
+        isBackgroundLayerUpdated = false;
+        p.background(255);
+
+        /*** 以下、描画処理 ***/
+        drawCostMap(p);
     };
 };
 
-const dynmic_layer_sketch = function (p) {
+
+let isFrontLayerUpdated = true;
+const front_layer_sketch = function (p) {
     p.setup = function () {
-        p.createCanvas(700, 700);
+        p.createCanvas(consoleWidth, consoleHeight);
         p.background(0, 0, 0, 0);
     };
 
-    let counter = 0;
     p.draw = function () {
+        if (!isFrontLayerUpdated) {
+            return;
+        }
+        isFrontLayerUpdated = false;
         p.setup();
-        p.ellipse(counter, 700 - counter, 100, 100);
-        counter++;
-        counter = counter % 700;
+
+        /*** 以下、描画処理 ***/
     };
 };
 
-new p5(static_layer_sketch, "static-layer");
-new p5(dynmic_layer_sketch, "dynamic-layer");
+
+function drawCostMap(p) {
+    if (costMap === null) {
+        return;
+    }
+    p.noStroke();
+    const colorFrom = p.color(255);
+    const colorTo = p.color(0);
+
+    let w = Math.floor(consoleWidth / costMap.info.width);
+    let h = Math.floor(consoleHeight / costMap.info.height);
+    const cellSize = w < h ? w : h;
+
+    for (let row = 0; row < costMap.info.height; row++) {
+        for (let col = 0; col < costMap.info.width; col++) {
+            p.fill(p.lerpColor(colorFrom, colorTo, costMap.data[row][col]/100));
+            p.rect(col*cellSize, row*cellSize, cellSize, cellSize);
+        }
+    }
+}
+
+
+/* AWS IoT へ接続する */
+setupAwsIot();
+
+/* Sketch を DOM に追加 */
+new p5(background_layer_sketch, "background-layer");
+new p5(front_layer_sketch, "front-layer");

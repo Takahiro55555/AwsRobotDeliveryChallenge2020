@@ -25,11 +25,11 @@
     </div>
     <div class="row">
         <div class="col-md-8 col-12 mt-2 p-0 console" id="console">
-            <!-- ユーザ(ブラウザ側)の操作から影響を受けない部分の描画を担当 -->
-            <div class="static-layer" id="static-layer"></div>
+            <!-- ユーザ(ブラウザ側)の操作から影響を受けず、更新頻度の少ない部分の描画を担当 -->
+            <div class="background-layer" id="background-layer"></div>
 
-            <!-- ユーザの操作からの影響を受けやすいUIなどの部分の描画を担当 -->
-            <div class="dynamic-layer" id="dynamic-layer"></div>
+            <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->
+            <div class="front-layer" id="front-layer"></div>
         </div>
         <div class="col-md-4 col-12">
             <div class="row">
