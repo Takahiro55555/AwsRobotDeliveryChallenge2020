@@ -1,0 +1,33 @@
+html {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+body {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+.logo {
+    background-color: #242F3E;
+}
+
+img.logo {
+    height: 50px;
+}
+
+.console {
+    position: absolute;
+}
+
+.static-layer {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
+
+.dynamic-layer {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+}
