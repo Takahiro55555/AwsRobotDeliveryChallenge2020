@@ -83,6 +83,10 @@ class Mqtt:
         pub_topic = topic
         if not pub_topic[0] is '/':
             pub_topic = self.__mqtt_publish_topic_prefix + "/" + pub_topic
+        if pub_topic[0] is '/':
+            pub_topic = self.__thing_name + pub_topic
+        else:
+            pub_topic = self.__thing_name + '/' + pub_topic
 
         try:
             json_msg = json.dumps(msg)
@@ -112,6 +116,10 @@ class Mqtt:
             sub_topic = cb["topic"]
             if not sub_topic[0] is '/':
                 sub_topic = self.__mqtt_subscribe_topic_prefix + "/" + sub_topic
+            if sub_topic[0] is '/':
+                sub_topic = self.__thing_name + sub_topic
+            else:
+                sub_topic = self.__thing_name + '/' + sub_topic
             self.myAWSIoTMQTTClient.subscribe(sub_topic, 1, cb["cb"])
 
     def __init_mqtt_client(self):
