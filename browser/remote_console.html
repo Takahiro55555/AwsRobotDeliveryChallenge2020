@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote Console</title>
 
+    <!-- FIXME: 試合時のCDNサーバ障害などによる、不具合を排除するために極力CDNは使用しないようにする -->
+
     <!-- AWS Robot Delivery Challenge -->
     <script src="js/aws-iot-sdk-browser-bundle.js"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
@@ -19,27 +21,28 @@
 </head>
 
 <body>
-<div class="container">
-    <div class="row">
-        <div class="col-12 logo pr-5 pt-2 pl-5 pb-2"><img src="img/logo.png" alt="logo" class="logo"></div>
-    </div>
-    <div class="row">
-        <div class="col-md-8 col-12 mt-2 p-0 console" id="console">
-            <!-- ユーザ(ブラウザ側)の操作から影響を受けず、更新頻度の少ない部分の描画を担当 -->
-            <div class="background-layer" id="background-layer"></div>
-
-            <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->
-            <div class="front-layer" id="front-layer"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-12 logo pr-5 pt-2 pl-5 pb-2"><img src="img/logo.png" alt="logo" class="logo"></div>
         </div>
-        <div class="col-md-4 col-12">
-            <div class="row">
+        <div class="row">
+            <div class="col-md-8 col-12 mt-2 p-0 console" id="console">
+                <!-- ユーザ(ブラウザ側)の操作から影響を受けず、更新頻度の少ない部分の描画を担当 -->
+                <div class="background-layer" id="background-layer"></div>
 
+                <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->
+                <div class="front-layer" id="front-layer"></div>
+            </div>
+            <div class="col-md-4 col-12">
+                <div class="row">
+
+                </div>
             </div>
         </div>
     </div>
-</div>
 </body>
 <script src="js/p5.min.js"></script>
 <script src="js/app-settings.js"></script>
 <script src="js/remote-visualizer.js"></script>
+
 </html>
