@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Console</title>
+
+    <!-- AWS Robot Delivery Challenge -->
+    <script src="js/aws-iot-sdk-browser-bundle.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/vue/2.5.22/vue.min.js'></script>
+
+    <!-- Bootstrap4 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+
+    <link rel="stylesheet" href="css/remote_console.css">
+</head>
+
+<body>
+<div class="container">
+    <div class="row">
+        <div class="col-12 logo pr-5 pt-2 pl-5 pb-2"><img src="img/logo.png" alt="logo" class="logo"></div>
+    </div>
+    <div class="row">
+        <div class="col-md-8 col-12 mt-2 p-0 console" id="console">
+            <!-- ユーザ(ブラウザ側)の操作から影響を受けない部分の描画を担当 -->
+            <div class="static-layer" id="static-layer"></div>
+
+            <!-- ユーザの操作からの影響を受けやすいUIなどの部分の描画を担当 -->
+            <div class="dynamic-layer" id="dynamic-layer"></div>
+        </div>
+        <div class="col-md-4 col-12">
+            <div class="row">
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script src="js/p5.min.js"></script>
+<script src="js/app-settings.js"></script>
+<script src="js/remote-visualizer.js"></script>
+</html>
