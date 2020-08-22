@@ -1,0 +1,22 @@
+html {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+body {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+.logo {
+    background-color: #242F3E;
+}
+
+img.logo {
+    height: 50px;
+}
+
+canvas{
+    width: 100%;
+    height: 100%;
+}
