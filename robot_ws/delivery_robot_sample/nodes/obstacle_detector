@@ -5,9 +5,12 @@ import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from geometry_msgs.msg import Pose, Point
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
+import math
+import json
 
 class ObstacleDetector():
     def __init__(self):
@@ -17,6 +20,8 @@ class ObstacleDetector():
             "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.__odm_cb, queue_size=1)
+        self._twugo_method_sub = rospy.Subscriber(
+            "/twugo_method", String, self.__set_next_vertex_pos, queue_size=1)
         self.__costmap_image_pub = rospy.Publisher(
             "/obstacle_detector/costmap_image", Image, queue_size=1)
         self.__trimed_merged_costmap_pub = rospy.Publisher(
@@ -26,6 +31,7 @@ class ObstacleDetector():
         self.__threshold = 90
         self.__robot_positon = None
         self.__trimed_merged_costmap = None
+        self.__next_vertex_pos = None
 
     def main(self):
         rate = rospy.Rate(15)  # 1Hz
@@ -44,6 +50,7 @@ class ObstacleDetector():
                 # cv2.drawMarker(img, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
                 # cv2.imshow('costmap', img)
                 # cv2.waitKey(10)
+                self.__obstacle_detect(costmap)
             rate.sleep()
 
 
@@ -270,6 +277,45 @@ class ObstacleDetector():
         trimed_origin.position.y += start["y"] * resoluton
         # return trimed_costmap_array
         return Costmap(trimed_costmap_array, trim_h, trim_w, costmap.get_resolution(), trimed_origin)
+
+    def __set_next_vertex_pos(self, data):
+        payload = json.loads(data.data)
+        self.__next_vertex_pos = Point()
+        self.__next_vertex_pos.x = payload["x"]
+        self.__next_vertex_pos.y = payload["y"]
+
+    def __obstacle_detect(self, costmap):
+        if self.__next_vertex_pos is None:
+            return
+        res = costmap.get_resolution()
+        distance = math.sqrt((self.__robot_positon.x - self.__next_vertex_pos.x)**2 + (self.__robot_positon.y - self.__next_vertex_pos.y)**2) / res
+        '''
+        [INFO] [1598088652.568205, 30.735000]: [Obstacle detector] distance:27.553619254
+        [INFO] [1598088652.573752, 30.739000]: [Obstacle detector] costmap_size(height, width):(384, 384)
+        [INFO] [1598088652.577548, 30.741000]: [Obstacle detector] costmap_resolution:0.0500000007451
+        '''
+        points = set()
+        self.__calc_center_point(points, distance, ((self.__robot_positon.x + 10)/res, (self.__robot_positon.y + 10)/res), ((self.__next_vertex_pos.x + 10)/res, (self.__next_vertex_pos.y + 10)/res))
+        rospy.loginfo("[Obstacle detector] points" + str(list(points)))
+        '''
+        mapの座標
+        x:-10から10まで
+        y:-10から10まで
+        インフレーションレイヤーとか使えそう。
+        '''
+
+
+
+    def __calc_center_point(self, points, distance, start, end):
+        if distance <= 0:
+            return
+        center_x = (end[0] + start[0]) // 2
+        center_y = (end[1] + start[1]) // 2
+        points.add((center_x, center_y))
+        self.__calc_center_point(points, distance//2, start, (center_x, center_y))
+        self.__calc_center_point(points, distance//2, (center_x, center_y), end)
+
+
 
 class Costmap():
     def __init__(self, array, height, width, resolution, origin):
