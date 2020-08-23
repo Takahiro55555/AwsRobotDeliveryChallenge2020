@@ -136,24 +136,24 @@ class ObstacleDetector():
 
         h, w = costmap1.get_size()
         if h != height or w != width:
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
             return
         if origin != costmap1.get_origin():
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
             return
         if resolution != costmap1.get_resolution():
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
             return
         if costmap2 != None:
             h, w = costmap2.get_size()
             if h != height or w != width:
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
                 return
             if origin != costmap2.get_origin():
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
                 return
             if resolution != costmap2.get_resolution():
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
                 return
             merged_array = np.dstack((costmap0.convert_array(func0), costmap1.convert_array(func1), costmap2.convert_array(func2)))
         else:
@@ -176,19 +176,19 @@ class ObstacleDetector():
                 cv2.drawMarker(merged_array, (int((marker0.x - start_point.x)/resolution), int((marker0.y - start_point.y)/resolution)),
                                 (255, 0, 0), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker0 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker0 の描画位置が範囲外のため描画できませんでした")
         if marker1 != None:
             if (start_point.x <= marker1.x and marker1.x <= end_point.x) and (start_point.y <= marker1.y and marker1.y <= end_point.y):
                 cv2.drawMarker(merged_array, (int((marker1.x - start_point.x)/resolution), int((marker1.y - start_point.y)/resolution)),
                                 (0, 255, 0), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker1 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker1 の描画位置が範囲外のため描画できませんでした")
         if marker2 != None:
             if (start_point.x <= marker2.x and marker2.x <= end_point.x) and (start_point.y <= marker2.y and marker2.y <= end_point.y):
                 cv2.drawMarker(merged_array, (int((marker2.x - start_point.x)/resolution), int((marker2.y - start_point.y)/resolution)),
                                 (0, 0, 255), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker2 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker2 の描画位置が範囲外のため描画できませんでした")
 
         return merged_array
 
