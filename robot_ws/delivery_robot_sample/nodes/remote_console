@@ -5,7 +5,7 @@ from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 
 import rospy
 from std_msgs.msg import String
-from nav_msgs.msg import OccupancyGrid
+from nav_msgs.msg import OccupancyGrid, Odometry
 
 import numpy as np
 
@@ -19,11 +19,13 @@ import yaml
 
 class RemoteConsole():
     def __init__(self, config):
+        subscribe_cb_list = []
+        subscribe_cb_list.append({"topic": config["subscribeTopic"], "cb": self.__mqtt_sample_cb})
+        self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
+
         self.__trimed_merged_costmap_sub = rospy.Subscriber(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
-        
-        subscribe_cb_list = [{"topic": config["subscribeTopic"], "cb": self.__mqtt_sample_cb}]
-        self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
+        self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
 
     def main(self):
         rospy.spin()
@@ -57,9 +59,44 @@ class RemoteConsole():
             ),
             data = costmap_array
         )
-
         self.__mqtt_client.mqtt_publish(pub_data, "obstacle_detector/merged_costmap/trimed")
 
+
+    def __odom_cb(self, data):
+        pub_data = dict(
+            pose = dict(
+                pose = dict(
+                    position = dict(
+                        x = data.pose.pose.position.x,
+                        y = data.pose.pose.position.y,
+                        z = data.pose.pose.position.z
+                    ),
+                    orientation = dict(
+                        x = data.pose.pose.orientation.x,
+                        y = data.pose.pose.orientation.y,
+                        z = data.pose.pose.orientation.z,
+                        w = data.pose.pose.orientation.w
+                    )
+                ),
+                covariance = data.pose.covariance
+            ),
+            twist = dict(
+                twist = dict(
+                    linear = dict(
+                        x = data.twist.twist.linear.x,
+                        y = data.twist.twist.linear.y,
+                        z = data.twist.twist.linear.z
+                    ),
+                    angular = dict(
+                        x = data.twist.twist.angular.x,
+                        y = data.twist.twist.angular.y,
+                        z = data.twist.twist.angular.z
+                    )
+                ),
+                covariance = data.twist.covariance
+            )
+        )
+        self.__mqtt_client.mqtt_publish(pub_data, "odom")
 
 
 class Mqtt:
@@ -99,6 +136,7 @@ class Mqtt:
         except Exception as e:
             rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb got exception")
             rospy.logwarn(e)
+        rospy.loginfo("[remote_cosole]Mqtt::mqtt_publish (Topic: %s)" % pub_topic)
 
     def __init_mqtt_subscribers(self):
         self.myAWSIoTMQTTClient.connect()
