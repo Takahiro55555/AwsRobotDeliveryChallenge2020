@@ -296,7 +296,7 @@ class ObstacleDetector():
         offset = 10 # mapの座標, x:-10から10まで, y:-10から10まで
         self.__calc_center_point(points, distance, ((self.__robot_positon.x + offset)/res, (self.__robot_positon.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
         for (x, y) in points:
-            if costmap_array[y][x] >= 80:
+            if costmap_array[y][x] >= self.__threshold:
                 rospy.logwarn("[Obstacle detector] obstacle detect!!")
         # rospy.loginfo("[Obstacle detector] points:" + str(list(points)))
 
