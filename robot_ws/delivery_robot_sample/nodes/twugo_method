@@ -41,6 +41,7 @@ class TwugoMethod():
         self._turn_p = 0.95
         self._x_goal = 0
         self._y_goal = 0
+        self._odom = None
 
     def main(self):
         while not rospy.is_shutdown():
@@ -74,6 +75,7 @@ class TwugoMethod():
         self._is_started = True
 
     def odom_cb(self, data):
+        self._odom = data
         self._next_synctime = time.time() + 0.3
         if not self._is_started and not self._is_stoped:
             self._twist.linear.x = 0
@@ -82,12 +84,18 @@ class TwugoMethod():
             self._is_stoped = True
         if not self._is_started:
             return
-        r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
+        self.goto_point(self._x_goal, self._y_goal)
+
+    def goto_point(self, x, y):
+        if self._odom == None:
+            rospy.logwarn('[TwugoMethod().goto_point]odom is null.')
+            return
+        r_x, r_y = self._odom.pose.pose.position.x, self._odom.pose.pose.position.y
         r_ang_qua = tf.transformations.euler_from_quaternion([
-            data.pose.pose.orientation.x, data.pose.pose.orientation.y,
-            data.pose.pose.orientation.z, data.pose.pose.orientation.w])
+            self._odom.pose.pose.orientation.x, self._odom.pose.pose.orientation.y,
+            self._odom.pose.pose.orientation.z, self._odom.pose.pose.orientation.w])
         r_ang = r_ang_qua[2]
-        atan2_tmp = math.atan2(self._y_goal - r_y, self._x_goal - r_x)
+        atan2_tmp = math.atan2(y - r_y, x - r_x)
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
                               math.cos(atan2_tmp - r_ang))
         turn_speed = ang_diff * self._turn_p
@@ -101,6 +109,30 @@ class TwugoMethod():
             turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
         self._cmd_pub.publish(self._twist)
         self._is_stoped = False
+
+    def judge_is_on_line(self, p1_x, p1_y, p2_x, p2_y):
+        if self._odom == None:
+            rospy.logwarn('[TwugoMethod().judge_is_on_line]odom is null.')
+            return
+
+        tolerance = 0.1
+        x, y = self._odom.pose.pose.position.x, self._odom.pose.pose.position.y
+        
+        # 点(x,y)がp1, p2, (min(p1.x,p2.x),min(p1.y,p2.y)), (max(p1.x,p2.x),max(p1.y,p2.y))
+        # を頂点とする長方形に内在するか考える　直線でなく線分で判定するため
+        if not (min(p1_x, p2_x)-tolerance <= x and x <= max(p1_x, p2_x)+tolerance \
+            and min(p1_y, p2_y)-tolerance <= y and y <= max(p1_y, p2_y)+tolerance):
+            return
+
+        # ベクトルを使ってロボットと直線の距離を求める
+        dist_between_p = math.sqrt((p2_x - p1_x)**2 + (p2_y - p1_y)**2)
+        e_x = (p2_x - p1_x) / dist_between_p
+        e_y = (p2_y - p1_y) / dist_between_p
+        dist = abs((x - p1_x)*e_y - (y - p2_y)*e_x)
+
+        if dist < tolerance:
+            rospy.loginfo('Robot is on a check-line!')
+        return     
 
     @staticmethod
     def sign(x):
