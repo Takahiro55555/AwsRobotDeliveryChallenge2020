@@ -5,9 +5,12 @@ import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from geometry_msgs.msg import Pose, Point
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
+import math
+import json
 
 class ObstacleDetector():
     def __init__(self):
@@ -17,12 +20,18 @@ class ObstacleDetector():
             "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.__odm_cb, queue_size=1)
+        self._twugo_method_sub = rospy.Subscriber(
+            "/twugo_method", String, self.__set_next_vertex_pos, queue_size=1)
         self.__costmap_image_pub = rospy.Publisher(
-            "/costmap_image", Image, queue_size=1)
+            "/obstacle_detector/costmap_image", Image, queue_size=1)
+        self.__trimed_merged_costmap_pub = rospy.Publisher(
+            "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, queue_size=1)
         self.__initial_global_costmap = None
         self.__local_costmap = None
         self.__threshold = 90
         self.__robot_positon = None
+        self.__trimed_merged_costmap = None
+        self.__next_vertex_pos = None
 
     def main(self):
         rate = rospy.Rate(15)  # 1Hz
@@ -41,6 +50,7 @@ class ObstacleDetector():
                 # cv2.drawMarker(img, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
                 # cv2.imshow('costmap', img)
                 # cv2.waitKey(10)
+                self.__obstacle_detect(costmap)
             rate.sleep()
 
 
@@ -49,8 +59,8 @@ class ObstacleDetector():
         blank_global_costmap = np.zeros((h, w), dtype='uint8')
         global_origin = global_costmap.get_origin()
         global_resolution = global_costmap.get_resolution()
-        global_costmap_array = global_costmap.get_array()
-        local_costmap_array = local_costmap.get_array()
+        global_costmap_array = global_costmap.convert_array(global_array_func)
+        local_costmap_array = local_costmap.convert_array(local_array_func)
         local_origin = local_costmap.get_origin()
         local_resolution = local_costmap.get_resolution()
 
@@ -76,17 +86,17 @@ class ObstacleDetector():
         return Costmap(blank_global_costmap, h, w, global_resolution, global_origin)
 
 
-    def __merge_costmap_local_costmap_to_global_costmap(self, global_costmap, local_costmap):
+    def __merge_costmap_local_costmap_to_global_costmap(self, global_costmap, local_costmap, global_array_func=lambda x:x, local_array_func=lambda x: x):
         h, w = global_costmap.get_size()
         blank_global_costmap = np.zeros((h, w), dtype='uint8')
         global_origin = global_costmap.get_origin()
         global_resolution = global_costmap.get_resolution()
-        global_array = global_costmap.get_array()
+        global_array = global_costmap.convert_array(global_array_func)
         for y in range(h):
             for x in range(w):
                 blank_global_costmap[y][x] = global_array[y][x]
 
-        local_array = local_costmap.get_array()
+        local_array = local_costmap.convert_array(local_array_func)
         local_origin = local_costmap.get_origin()
         local_resolution = local_costmap.get_resolution()
 
@@ -118,7 +128,8 @@ class ObstacleDetector():
         self.__robot_positon.y = data.pose.pose.position.y
         self.__robot_positon.z = data.pose.pose.position.z
 
-    def __merge_costmap_arrays(self, costmap0, costmap1, costmap2=None, marker0=None, marker1=None, marker2=None, marker_size=10):
+    def __merge_costmap_arrays(self, costmap0, costmap1, costmap2=None, func0=lambda x: x, func1=lambda x: x, func2=lambda x: x,
+                                 marker0=None, marker1=None, marker2=None, marker_size=10):
         height, width = costmap0.get_size()
         origin = costmap0.get_origin()
         resolution = costmap0.get_resolution()
@@ -144,9 +155,9 @@ class ObstacleDetector():
             if resolution != costmap2.get_resolution():
                 rospy.logerr("[Obstacle detector] costmap0 と costmap2 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
                 return
-            merged_array = np.dstack((costmap0.get_array(), costmap1.get_array(), costmap2.get_array()))
+            merged_array = np.dstack((costmap0.convert_array(func0), costmap1.convert_array(func1), costmap2.convert_array(func2)))
         else:
-            merged_array = np.dstack((costmap0.get_array(), costmap1.get_array(), np.zeros((height, width), dtype="uint8")))
+            merged_array = np.dstack((costmap0.convert_array(func0), costmap1.convert_array(func1), np.zeros((height, width), dtype="uint8")))
         
         if marker0 == None and marker1 == None and marker2 == None:
             return merged_array
@@ -183,22 +194,24 @@ class ObstacleDetector():
 
     def __global_costmap_cb(self, data):
         h, w = data.info.height, data.info.width
-        costmap = np.array(map(lambda x: 255 if x > self.__threshold else 0, data.data), dtype='uint8').reshape(h, w)
+        costmap = np.array(data.data, dtype='uint8').reshape(h, w)
         if self.__initial_global_costmap is None:
             self.__initial_global_costmap = Costmap(
                 costmap, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
-        pos = data.info.origin.position
-        ori = data.info.origin.orientation
+        
 
     def __local_costmap_cb(self, data):
         h, w = data.info.height, data.info.width
-        costmap = np.array(map(lambda x: 255 if x > self.__threshold else 0, data.data), dtype='uint8').reshape(h, w)
+        costmap = np.array(data.data, dtype='uint8').reshape(h, w)
         self.__local_costmap = Costmap(
                 costmap, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
-        pos = data.info.origin.position
-        ori = data.info.origin.orientation
+        if self.__initial_global_costmap != None:
+            merged_array = self.__merge_costmap_local_costmap_to_global_costmap(self.__initial_global_costmap, self.__local_costmap)
+            self.__trimed_merged_costmap = self.__trim_costmap(merged_array)
+            self.__trimed_merged_costmap_pub.publish(self.__trimed_merged_costmap.converte_occupancy_grid())
+
 
     def __trim_costmap(self, costmap):
         start = dict(x=None, y=None)
@@ -265,6 +278,39 @@ class ObstacleDetector():
         # return trimed_costmap_array
         return Costmap(trimed_costmap_array, trim_h, trim_w, costmap.get_resolution(), trimed_origin)
 
+    def __set_next_vertex_pos(self, data):
+        payload = json.loads(data.data)
+        if "is_goal" in payload and payload["is_goal"]:
+            return
+        self.__next_vertex_pos = Point()
+        self.__next_vertex_pos.x = payload["x"]
+        self.__next_vertex_pos.y = payload["y"]
+
+    def __obstacle_detect(self, costmap):
+        if self.__next_vertex_pos is None:
+            return
+        costmap_array = costmap.get_array()
+        res = costmap.get_resolution()
+        distance = math.sqrt((self.__robot_positon.x - self.__next_vertex_pos.x)**2 + (self.__robot_positon.y - self.__next_vertex_pos.y)**2) / res
+        points = set()
+        offset = 10 # mapの座標, x:-10から10まで, y:-10から10まで
+        self.__calc_center_point(points, distance, ((self.__robot_positon.x + offset)/res, (self.__robot_positon.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
+        for (x, y) in points:
+            if costmap_array[y][x] >= self.__threshold:
+                rospy.logwarn("[Obstacle detector] obstacle detect!!")
+        # rospy.loginfo("[Obstacle detector] points:" + str(list(points)))
+
+    def __calc_center_point(self, points, distance, start, end):
+        if distance <= 0:
+            return
+        center_x = int((end[0] + start[0]) / 2)
+        center_y = int((end[1] + start[1]) / 2)
+        points.add((center_x, center_y))
+        self.__calc_center_point(points, distance//2, start, (center_x, center_y))
+        self.__calc_center_point(points, distance//2, (center_x, center_y), end)
+
+
+
 class Costmap():
     def __init__(self, array, height, width, resolution, origin):
         self.__array = array
@@ -275,6 +321,11 @@ class Costmap():
 
     def get_array(self):
         return self.__array
+    
+    # TODO: 適切な関数名をつける
+    def convert_array(self, func):
+        h, w = self.__height, self.__width
+        return np.array(map(func, self.__array.reshape(h*w)), dtype="uint8").reshape(h, w)
 
     def get_size(self):
         return self.__height, self.__width
@@ -285,7 +336,14 @@ class Costmap():
     def get_origin(self):
         return self.__origin
 
-
+    def converte_occupancy_grid(self):
+        grid = OccupancyGrid()
+        grid.data = tuple(self.__array.reshape(self.__height * self.__width))
+        grid.info.resolution = self.__resolution
+        grid.info.origin = self.__origin
+        grid.info.height = self.__height
+        grid.info.width = self.__width
+        return grid
 
 if __name__ == "__main__":
     rospy.init_node('obstacle_detector')
