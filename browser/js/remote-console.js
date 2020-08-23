@@ -1,5 +1,8 @@
 const awsIot = require('aws-iot-device-sdk');
-const gm_subscribe_topic = iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed";
+
+const subscribeTopics = {};
+subscribeTopics.costmap = iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed";
+subscribeTopics.odom = iotclientId + "/ros_to_remote_console/odom";
 
 async function getCognitoCredentials() {
     AWS.config.region = region;
@@ -17,7 +20,7 @@ async function getCognitoCredentials() {
     return credentials;
 }
 
-let costMap = null;
+let costmap = null;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
     const deviceIot = awsIot.device({
@@ -33,21 +36,28 @@ async function setupAwsIot() {
         host: iotendpoint
     });
 
+    // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
-        if (topic == iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed") {
-            costMap = JSON.parse(payload.toString());
-            isBackgroundLayerUpdated = true;
-        }
         console.log(topic);
+        if (topic == subscribeTopics.costmap) {
+            costmap = JSON.parse(payload.toString());
+            isBackgroundLayerUpdated = true;
+        } else if (topic == subscribeTopics.odom) {
+            console.log(JSON.parse(payload.toString()));
+        }
     });
 
-    deviceIot.subscribe(gm_subscribe_topic, undefined, function (err, granted) {
-        if (err) {
-            console.log('subscribe error: ' + err);
-        } else {
-            console.log('subscribe success');
-        }
-    });
+    // Subscribe する Topic を登録する
+    for (key in subscribeTopics) {
+        deviceIot.subscribe(subscribeTopics[key], undefined, function (err, granted) {
+            console.log("Topic: " + granted[0].topic);
+            if (err) {
+                console.log('subscribe error: ' + err);
+            } else {
+                console.log('subscribe success');
+            }
+        });
+    }
 }
 
 /**** 以下、描画関係 ****/
@@ -95,21 +105,21 @@ const front_layer_sketch = function (p) {
 
 
 function drawCostMap(p) {
-    if (costMap === null) {
+    if (costmap === null) {
         return;
     }
     p.noStroke();
     const colorFrom = p.color(255);
     const colorTo = p.color(0);
 
-    let w = Math.floor(consoleWidth / costMap.info.width);
-    let h = Math.floor(consoleHeight / costMap.info.height);
+    let w = Math.floor(consoleWidth / costmap.info.width);
+    let h = Math.floor(consoleHeight / costmap.info.height);
     const cellSize = w < h ? w : h;
 
-    for (let row = 0; row < costMap.info.height; row++) {
-        for (let col = 0; col < costMap.info.width; col++) {
-            p.fill(p.lerpColor(colorFrom, colorTo, costMap.data[row][col]/100));
-            p.rect(col*cellSize, row*cellSize, cellSize, cellSize);
+    for (let row = 0; row < costmap.info.height; row++) {
+        for (let col = 0; col < costmap.info.width; col++) {
+            p.fill(p.lerpColor(colorFrom, colorTo, costmap.data[row][col] / 100));
+            p.rect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     }
 }
