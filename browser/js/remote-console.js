@@ -147,16 +147,33 @@ function drawTurtleBot3(p, odom, costmap, cellSize, consoleWidth, consoleHeight)
     const TURTLEBOT3_BURGER_REAL_SIZE_M = 0.21;
     const resolution = costmap.info.resolution;
     const trutlebot3Px = cellSize / resolution * TURTLEBOT3_BURGER_REAL_SIZE_M;
-
     const x = cellSize / resolution * (odom.pose.pose.position.x - costmap.info.origin.position.x);
     const y = cellSize / resolution * (odom.pose.pose.position.y - costmap.info.origin.position.y);
+    const eulerOrientation = quaternionToEuler(odom.pose.pose.orientation);
 
     p.push();
-    p.imageMode(p5.CENTER);
-    p.translate(-consoleWidth / 2, -consoleHeight / 2);
-    p.image(p.turtleBot3Image, x, y, trutlebot3Px, trutlebot3Px);
+    p.translate(-consoleWidth / 2 + x, -consoleHeight / 2 + y);  // 原点をロボットの位置にする
+    // TODO: costmap の原点の orientation も考慮するようにする
+    p.rotateZ(p.PI * 3 / 2 + eulerOrientation.z);  // ロボットの向きが実際の向きと一致するように座標系を
+    p.imageMode(p5.CENTER);  // 画像の基準点を画像中心部に設定
+    p.image(p.turtleBot3Image, 0, 0, trutlebot3Px, trutlebot3Px);
     p.pop();
 }
+
+function quaternionToEuler(quat) {
+    /**
+     * ## 参考
+     * - [ソースコード](https://www.npmjs.com/package/quaternion-to-euler)
+     * - [文献](https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles)
+     */
+    if (!(Number.isFinite(quat.w) && Number.isFinite(quat.x) && Number.isFinite(quat.y) && Number.isFinite(quat.z))) {
+        return { x: 0, y: 0, z: 0 };
+    }
+    const x = Math.atan2(2 * (quat.w * quat.x + quat.y * quat.z), 1 - (2 * (quat.x * quat.x + quat.y * quat.y)));
+    const y = Math.asin(2 * (quat.w * quat.y - quat.z * quat.x));
+    const z = Math.atan2(2 * (quat.w * quat.z + quat.x * quat.y), 1 - (2 * (quat.y * quat.y + quat.z * quat.z)));
+    return { x, y, z };
+};
 
 
 /* AWS IoT へ接続する */
@@ -165,3 +182,12 @@ setupAwsIot();
 /* Sketch を DOM に追加 */
 const backgroundLayerP5 = new p5(background_layer_sketch, "background-layer");
 const frontLayerP5 = new p5(front_layer_sketch, "front-layer");
+const backgroundLayerParent = document.getElementById("background-layer");
+const frontLayerParent = document.getElementById("front-layer");
+
+/* Canvas の上位Element の高さを Canvas の高さと一緒にする */
+if (backgroundLayerParent.parentElement.style.height < consoleHeight) {
+    backgroundLayerParent.parentElement.style.height = String(consoleHeight) + "px";
+}
+backgroundLayerParent.style.height = String(consoleHeight) + "px";
+frontLayerParent.style.height = String(consoleHeight) + "px";
