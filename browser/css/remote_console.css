@@ -38,3 +38,7 @@ img.logo {
     border-color: #696969;
     border-radius: 4px;
 }
+
+.btn-line-through-on-disabled:disabled{
+    text-decoration: line-through;
+}
