@@ -71,6 +71,7 @@ catkin_install_python(PROGRAMS
   nodes/navigation
   nodes/commander
   nodes/obstacle_detector
+  nodes/remote_console
   nodes/twugo_method
   nodes/goto_method
   nodes/planner

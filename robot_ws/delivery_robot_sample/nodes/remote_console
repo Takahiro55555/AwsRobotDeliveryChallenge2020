@@ -1,0 +1,235 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
+
+import rospy
+from std_msgs.msg import String
+from nav_msgs.msg import OccupancyGrid, Odometry
+
+import numpy as np
+
+import os
+import random
+import time
+import types
+import json
+import yaml
+
+
+class RemoteConsole():
+    def __init__(self, config):
+        subscribe_cb_list = []
+        subscribe_cb_list.append({"topic": config["subscribeTopic"], "cb": self.__mqtt_sample_cb})
+        self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
+
+        self.__trimed_merged_costmap_sub = rospy.Subscriber(
+            "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
+        self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
+
+    def main(self):
+        rospy.spin()
+
+    def __mqtt_sample_cb(self, client, userdata, message):
+        pass
+
+    def __trimed_merged_costmap_cb(self, data):
+        h, w = data.info.height, data.info.width
+        costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
+
+        # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
+        pub_data = dict(
+            info = dict(
+                height = h,
+                width = w,
+                resolution = data.info.resolution,
+                origin = dict(
+                    position = dict(
+                        x = data.info.origin.position.x,
+                        y = data.info.origin.position.y,
+                        z = data.info.origin.position.z
+                    ),
+                    orientation = dict(
+                        x = data.info.origin.orientation.x,
+                        y = data.info.origin.orientation.y,
+                        z = data.info.origin.orientation.z,
+                        w = data.info.origin.orientation.w
+                    )
+                )
+            ),
+            data = costmap_array
+        )
+        self.__mqtt_client.mqtt_publish(pub_data, "obstacle_detector/merged_costmap/trimed")
+
+
+    def __odom_cb(self, data):
+        pub_data = dict(
+            pose = dict(
+                pose = dict(
+                    position = dict(
+                        x = data.pose.pose.position.x,
+                        y = data.pose.pose.position.y,
+                        z = data.pose.pose.position.z
+                    ),
+                    orientation = dict(
+                        x = data.pose.pose.orientation.x,
+                        y = data.pose.pose.orientation.y,
+                        z = data.pose.pose.orientation.z,
+                        w = data.pose.pose.orientation.w
+                    )
+                ),
+                covariance = data.pose.covariance
+            ),
+            twist = dict(
+                twist = dict(
+                    linear = dict(
+                        x = data.twist.twist.linear.x,
+                        y = data.twist.twist.linear.y,
+                        z = data.twist.twist.linear.z
+                    ),
+                    angular = dict(
+                        x = data.twist.twist.angular.x,
+                        y = data.twist.twist.angular.y,
+                        z = data.twist.twist.angular.z
+                    )
+                ),
+                covariance = data.twist.covariance
+            )
+        )
+        self.__mqtt_client.mqtt_publish(pub_data, "odom")
+
+
+class Mqtt:
+    AllowedActions = ['both', 'publish', 'subscribe']
+
+    def __init__(self, config, subscribe_cb_list=[], mqtt_subscribe_topic_prefix='/remote_console_to_tros',
+                 mqtt_publish_topic_prefix='/ros_to_remote_console', client_id_prefix="mqtt_remote_console_"):
+        self.__iot_data = config
+        self.__thing_name = self.__iot_data["thingName"]
+
+        self.__mqtt_subscribe_topic_prefix = mqtt_subscribe_topic_prefix
+        self.__mqtt_publish_topic_prefix = mqtt_publish_topic_prefix
+        self.__subscribe_cb_list = subscribe_cb_list
+        self.__client_id = self.__thing_name + client_id_prefix + str(random.randint(0, 0x7fffffff))  # prefix なのに先頭に来ていないのは突っ込まないで...
+
+        self.__init_mqtt_client()
+        self.__init_mqtt_subscribers()
+
+
+    def mqtt_publish(self, msg, topic):
+        pub_topic = topic
+        if not pub_topic[0] is '/':
+            pub_topic = self.__mqtt_publish_topic_prefix + "/" + pub_topic
+        if pub_topic[0] is '/':
+            pub_topic = self.__thing_name + pub_topic
+        else:
+            pub_topic = self.__thing_name + '/' + pub_topic
+
+        try:
+            json_msg = json.dumps(msg)
+        except TypeError as e:
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb JSON 文字列に変換することができませんでした")
+            rospy.logwarn(e)
+
+        try:
+            self.myAWSIoTMQTTClient.publish(pub_topic, json_msg, 1)
+        except Exception as e:
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb got exception")
+            rospy.logwarn(e)
+        rospy.loginfo("[remote_cosole]Mqtt::mqtt_publish (Topic: %s)" % pub_topic)
+
+    def __init_mqtt_subscribers(self):
+        self.myAWSIoTMQTTClient.connect()
+        for cb in self.__subscribe_cb_list:
+            if not "topic" in cb:
+                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers topic が設定されていません")
+                exit(1)
+            if not type(cb["topic"]) is types.StringType:
+                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers topic は文字列にする必要があります")
+                exit(1)
+            if not "cb" in cb:
+                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers cb が設定されていません。cb とはコールバック関数のことです")
+                exit(1)
+
+            sub_topic = cb["topic"]
+            if not sub_topic[0] is '/':
+                sub_topic = self.__mqtt_subscribe_topic_prefix + "/" + sub_topic
+            if sub_topic[0] is '/':
+                sub_topic = self.__thing_name + sub_topic
+            else:
+                sub_topic = self.__thing_name + '/' + sub_topic
+            self.myAWSIoTMQTTClient.subscribe(sub_topic, 1, cb["cb"])
+
+    def __init_mqtt_client(self):
+        # Grab all required info from the parsed data
+        folder_path = self.__iot_data['configFilePath']
+
+        host = self.__iot_data['endpoint']
+        rootCAPath = os.path.join(folder_path, self.__iot_data['rootCAFile'])
+        certificatePath = os.path.join(folder_path, self.__iot_data['certFile'])
+        privateKeyPath = os.path.join(
+            folder_path, self.__iot_data['privateKeyFile'])
+        useWebsocket = self.__iot_data['useWebsocket']
+        self.mode = self.__iot_data['mqttMode']
+
+        if self.mode not in Mqtt.AllowedActions:
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::_init_mqtt_client Unknown --mode option %s. Must be one of %s" %
+                          (self.mode, str(Mqtt.AllowedActions)))
+            exit(2)
+        if useWebsocket and certificatePath and privateKeyPath:
+            rospy.logwarn(
+                "[ERROR][remote_sonsole]Mqtt::_init_mqtt_client X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
+            exit(2)
+        if not useWebsocket and (not certificatePath or not privateKeyPath):
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::_init_mqtt_client Missing credentials for authentication.")
+            exit(2)
+
+        if useWebsocket:
+            port = 443
+        if not useWebsocket:
+            port = 8883
+
+        # Init AWSIoTMQTTClient
+        self.myAWSIoTMQTTClient = None
+        if useWebsocket:
+            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(
+                self.__client_id, useWebsocket=True)
+            self.myAWSIoTMQTTClient.configureEndpoint(host, port)
+            self.myAWSIoTMQTTClient.configureCredentials(rootCAPath)
+        else:
+            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(self.__client_id)
+            self.myAWSIoTMQTTClient.configureEndpoint(host, port)
+            self.myAWSIoTMQTTClient.configureCredentials(
+                rootCAPath, privateKeyPath, certificatePath)
+
+        # AWSIoTMQTTClient connection configuration
+        self.myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
+        # Infinite offline Publish queueing
+        self.myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)
+        self.myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
+        self.myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
+        self.myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+
+
+
+def main():
+    rospy.init_node('remote_console')
+
+    # AWS IoT の設定を読み込む
+    config = {}
+    config_file = rospy.get_param("/aws_game_manager/aws_iot_config_file")
+    if config_file == "use_default":
+        config_file = rospy.get_param("/aws_game_manager/aws_iot_config_file_default")
+
+    with open(config_file, 'r') as f:
+        try:
+            config = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            rospy.logerr("[ERROR][remote_sonsole] yaml read error")
+    config["configFilePath"] = os.path.dirname(config_file)
+
+    remote_console = RemoteConsole(config)
+    remote_console.main()
+
+if __name__ == '__main__':
+    main()
