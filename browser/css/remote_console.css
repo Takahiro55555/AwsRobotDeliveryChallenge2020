@@ -1,0 +1,44 @@
+html {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+body {
+    margin: 0rem;
+    padding: 0rem;
+}
+
+.logo {
+    background-color: #242F3E;
+}
+
+img.logo {
+    height: 50px;
+}
+
+.console {
+    position: relative;
+}
+
+.background-layer {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 0;
+    width: 100%;
+}
+
+.front-layer {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    z-index: 10;
+    width: 100%;
+    border: 1px solid;
+    border-color: #696969;
+    border-radius: 4px;
+}
+
+.btn-line-through-on-disabled:disabled{
+    text-decoration: line-through;
+}

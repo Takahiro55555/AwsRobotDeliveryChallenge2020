@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Console</title>
+
+    <!-- FIXME: 試合時のCDNサーバ障害などによる、不具合を排除するために極力CDNは使用しないようにする -->
+
+    <!-- AWS Robot Delivery Challenge -->
+    <script src="js/aws-iot-sdk-browser-bundle.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.283.1.min.js"></script>
+
+    <!-- Bootstrap4 -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+
+    <link rel="stylesheet" href="css/remote_console.css">
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12 logo pr-5 pt-2 pl-5 pb-2"><img src="img/logo.png" alt="logo" class="logo"></div>
+        </div>
+        <div class="row p-3">
+            <div class="col-12 col-md-9 console" id="console">
+                <!-- NOTE: 更新頻度の低いものと更新頻度の高いものをレイヤーとして分けることで、
+                    　　　　キャンバス更新時の負荷を下げるため2つの Canvasを用意した。-->
+                <div class="background-layer" id="background-layer">
+                    <!-- ユーザ(ブラウザ側)の操作から影響を受けず、更新頻度の少ない部分の描画を担当 -->
+                </div>
+                <div class="front-layer" id="front-layer">
+                    <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->
+                </div>
+            </div>
+            <div class="col-md-2 col-12 pl-md-2">
+                <div class="row ml-md-0 p-md-0 p-sm-1">
+                    <div class="card col-md-12 col-5 p-2 mb-md-2 m-md-0">
+                        <div class="card-body p-0 m-0">
+                            <h5 class="card-title">メイン</h5>
+                            <button type="button" class="btn btn-primary btn-lg btn-block btn-line-through-on-disabled"
+                                id="btn-start-restart">
+                                スタート
+                            </button>
+                            <button type="button" class="btn btn-warning btn-block btn-line-through-on-disabled"
+                                id="btn-stop" disabled>
+                                停止
+                            </button>
+                            <button type="button"
+                                class="btn btn-outline-secondary btn-block btn-line-through-on-disabled"
+                                id="btn-retry-parking" disabled>
+                                駐車再試行
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
+                        <div class="card-body row p-0 m-0">
+                            <h5 class="card-title col-12 p-0">サブ</h5>
+                            <button type="button" class="btn col-12 btn-primary btn-block btn-line-through-on-disabled"
+                                id="btn-retry-game" disabled>再チャレンジ</button>
+                            <div class="form-group col-6 m-0 mt-2 pl-0">
+                                <select id="li-target-vertex" class="form-control">
+                                    <option>0</option>
+                                    <option>1</option>
+                                </select>
+                            </div>
+                            <button type="button"
+                                class="btn col-6 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
+                                disabled>GoTo</button>
+                        </div>
+                    </div>
+                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
+                        <div class="card-body row p-0 m-0">
+                            <h5 class="card-title col-12 p-0">モード選択</h5>
+                            <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
+                                <label for="li-game-mode">ゲームモード</label>
+                                <select id="li-game-mode" class="form-control">
+                                    <option>本戦</option>
+                                    <option>決勝戦</option>
+                                </select>
+                            </div>
+                            <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
+                                <label for="li-run-mode">走行モード</label>
+                                <select id="li-run-mode" class="form-control">
+                                    <option>慎重</option>
+                                    <option>攻める</option>
+                                </select>
+                            </div>
+                            <button type="button"
+                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2"
+                                id="btn-goto">適用</button>
+                        </div>
+                    </div>
+                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
+                        <div class="card-body row p-0 m-0">
+                            <h5 class="card-title col-12 p-0">経路情報の編集</h5>
+                            <div class="col-12">Active vertex：<span id="txt-active-vertex">0</span></div>
+                            <div class="col-12">Tolerance：<span id="txt-active-vertex-tolerance">0.15</span></div>
+                            <button type="button"
+                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2"
+                                id="btn-goto">適用（送信）</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="js/p5.min.js"></script>
+<script src="js/app-settings.js"></script>
+<script src="js/remote-console.js"></script>
+
+</html>
