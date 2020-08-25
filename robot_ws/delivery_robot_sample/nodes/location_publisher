@@ -39,9 +39,26 @@ class LocationPublisher():
         if self._UPDAE_RATE != 0:
             self._odom_sub = rospy.Subscriber ('/odom', Odometry, self._updata_odom)
         self._odom = None
+        self.__vertex_list_param = rospy.get_param("/vertex_list")
 
     def _updata_odom(self, msg):
         self._odom = msg
+
+    def get_nearest_vertex(self):
+        if self._odom == None:
+            return -1
+        x = self._odom.pose.pose.position.x
+        y = self._odom.pose.pose.position.y
+        id_min = -1
+        dist_min = float('inf')
+
+        for v in self.__vertex_list_param:
+            dist = (x-v['x'])**2 + (y-v['y'])**2
+            if dist_min > dist:
+                dist_min = dist
+                id_min = v['id']
+
+        return id_min
 
     def main(self):
         if self._UPDAE_RATE == 0:

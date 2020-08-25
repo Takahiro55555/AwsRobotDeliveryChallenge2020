@@ -5,9 +5,12 @@ import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from geometry_msgs.msg import Pose, Point
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 import cv2
 from cv_bridge import CvBridge
 import numpy as np
+import math
+import json
 
 class ObstacleDetector():
     def __init__(self):
@@ -17,6 +20,8 @@ class ObstacleDetector():
             "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.__odm_cb, queue_size=1)
+        self._twugo_method_sub = rospy.Subscriber(
+            "/twugo_method", String, self.__set_next_vertex_pos, queue_size=1)
         self.__costmap_image_pub = rospy.Publisher(
             "/obstacle_detector/costmap_image", Image, queue_size=1)
         self.__trimed_merged_costmap_pub = rospy.Publisher(
@@ -26,6 +31,7 @@ class ObstacleDetector():
         self.__threshold = 90
         self.__robot_positon = None
         self.__trimed_merged_costmap = None
+        self.__next_vertex_pos = None
 
     def main(self):
         rate = rospy.Rate(15)  # 1Hz
@@ -44,6 +50,7 @@ class ObstacleDetector():
                 # cv2.drawMarker(img, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
                 # cv2.imshow('costmap', img)
                 # cv2.waitKey(10)
+                self.__obstacle_detect(costmap)
             rate.sleep()
 
 
@@ -129,24 +136,24 @@ class ObstacleDetector():
 
         h, w = costmap1.get_size()
         if h != height or w != width:
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
             return
         if origin != costmap1.get_origin():
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
             return
         if resolution != costmap1.get_resolution():
-            rospy.logerr("[Obstacle detector] costmap0 と costmap1 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
+            rospy.logerr_once("[Obstacle detector] costmap0 と costmap1 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
             return
         if costmap2 != None:
             h, w = costmap2.get_size()
             if h != height or w != width:
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 のサイズが異なります。merge する costmap のサイズは統一する必要があります。")
                 return
             if origin != costmap2.get_origin():
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 の position 又は orientation が異なります。merge する costmap の原点は統一する必要があります。")
                 return
             if resolution != costmap2.get_resolution():
-                rospy.logerr("[Obstacle detector] costmap0 と costmap2 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
+                rospy.logerr_once("[Obstacle detector] costmap0 と costmap2 の resolution が異なります。merge する costmap のresolutionは統一する必要があります。")
                 return
             merged_array = np.dstack((costmap0.convert_array(func0), costmap1.convert_array(func1), costmap2.convert_array(func2)))
         else:
@@ -169,19 +176,19 @@ class ObstacleDetector():
                 cv2.drawMarker(merged_array, (int((marker0.x - start_point.x)/resolution), int((marker0.y - start_point.y)/resolution)),
                                 (255, 0, 0), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker0 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker0 の描画位置が範囲外のため描画できませんでした")
         if marker1 != None:
             if (start_point.x <= marker1.x and marker1.x <= end_point.x) and (start_point.y <= marker1.y and marker1.y <= end_point.y):
                 cv2.drawMarker(merged_array, (int((marker1.x - start_point.x)/resolution), int((marker1.y - start_point.y)/resolution)),
                                 (0, 255, 0), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker1 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker1 の描画位置が範囲外のため描画できませんでした")
         if marker2 != None:
             if (start_point.x <= marker2.x and marker2.x <= end_point.x) and (start_point.y <= marker2.y and marker2.y <= end_point.y):
                 cv2.drawMarker(merged_array, (int((marker2.x - start_point.x)/resolution), int((marker2.y - start_point.y)/resolution)),
                                 (0, 0, 255), markerType=cv2.MARKER_CROSS, markerSize=marker_size, thickness=1, line_type=cv2.LINE_8)
             else:
-                rospy.logwarn("[Obstacle detector] marker2 の描画位置が範囲がのため描画できませんでした")
+                rospy.logwarn("[Obstacle detector] marker2 の描画位置が範囲外のため描画できませんでした")
 
         return merged_array
 
@@ -270,6 +277,39 @@ class ObstacleDetector():
         trimed_origin.position.y += start["y"] * resoluton
         # return trimed_costmap_array
         return Costmap(trimed_costmap_array, trim_h, trim_w, costmap.get_resolution(), trimed_origin)
+
+    def __set_next_vertex_pos(self, data):
+        payload = json.loads(data.data)
+        if "is_goal" in payload and payload["is_goal"]:
+            return
+        self.__next_vertex_pos = Point()
+        self.__next_vertex_pos.x = payload["x"]
+        self.__next_vertex_pos.y = payload["y"]
+
+    def __obstacle_detect(self, costmap):
+        if self.__next_vertex_pos is None:
+            return
+        costmap_array = costmap.get_array()
+        res = costmap.get_resolution()
+        distance = math.sqrt((self.__robot_positon.x - self.__next_vertex_pos.x)**2 + (self.__robot_positon.y - self.__next_vertex_pos.y)**2) / res
+        points = set()
+        offset = 10 # mapの座標, x:-10から10まで, y:-10から10まで
+        self.__calc_center_point(points, distance, ((self.__robot_positon.x + offset)/res, (self.__robot_positon.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
+        for (x, y) in points:
+            if costmap_array[y][x] >= self.__threshold:
+                rospy.logwarn("[Obstacle detector] obstacle detect!!")
+        # rospy.loginfo("[Obstacle detector] points:" + str(list(points)))
+
+    def __calc_center_point(self, points, distance, start, end):
+        if distance <= 0:
+            return
+        center_x = int((end[0] + start[0]) / 2)
+        center_y = int((end[1] + start[1]) / 2)
+        points.add((center_x, center_y))
+        self.__calc_center_point(points, distance//2, start, (center_x, center_y))
+        self.__calc_center_point(points, distance//2, (center_x, center_y), end)
+
+
 
 class Costmap():
     def __init__(self, array, height, width, resolution, origin):
