@@ -22,8 +22,10 @@ def main():
 
 class Planner():
     def __init__(self):
-        self.__path_pub = rospy.Publisher(
-            "/path", String, queue_size=1)
+        # latch=True にすると、新たな Subscriber が一番最後に Publish されたメッセージを受信できるようになる
+        self.__path_pub = rospy.Publisher("/path", String, queue_size=1, latch=True)
+        self.__map_graph_pub = rospy.Publisher(
+            "/planner/map_graph", String, queue_size=1, latch=True)
         self.__commander_sub = rospy.Subscriber(
             "/commander/meta_info", String, self.__commander_cb, queue_size=1)
         self.__shortest_path_dict = {}
@@ -32,6 +34,11 @@ class Planner():
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
 
         self.__is_added_vertex = False
+
+        # NOTE: マップ情報を更新した後は、必ず以下の処理を実行すること
+        # self.__vertex_dict をJSONに変換し、Publishする
+        self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
+
     def main(self):
         rate = rospy.Rate(1)  # 1Hz
         while True:
@@ -266,6 +273,19 @@ class Planner():
         Edge(vertex1, new_vertex)
         Edge(vertex2, new_vertex)
 
+    def __get_vertex_list_by_json_str(self):
+        map_graph_dict = {}
+        for key in self.__vertex_dict:
+            v = self.__vertex_dict[key]
+            v_dict = dict(id=key, is_destination=v.get_is_destination(), is_via_point=v.get_is_via_point())
+            v_dict["x"], v_dict["y"] = v.get_position()
+            e_list = v.get_edge_list()
+            v_dict["linked_vertex_list"] = []
+            for e in e_list:
+                linked_vertex_id = e.get_opposite_vertex(v).get_vertex_id()
+                v_dict["linked_vertex_list"].append(linked_vertex_id)
+            map_graph_dict[key] = (v_dict)
+        return json.dumps(map_graph_dict)
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):

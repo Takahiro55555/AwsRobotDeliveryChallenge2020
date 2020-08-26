@@ -26,6 +26,7 @@ class RemoteConsole():
         self.__trimed_merged_costmap_sub = rospy.Subscriber(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
         self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
+        self.__map_graph_sub = rospy.Subscriber("/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
 
     def main(self):
         rospy.spin()
@@ -99,6 +100,10 @@ class RemoteConsole():
         self.__mqtt_client.mqtt_publish(pub_data, "odom")
 
 
+    def __map_graph_cb(self, data):
+        self.__mqtt_client.mqtt_publish(json.loads(data.data), "planner/map_graph")
+
+
 class Mqtt:
     AllowedActions = ['both', 'publish', 'subscribe']
 
@@ -136,7 +141,6 @@ class Mqtt:
         except Exception as e:
             rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb got exception")
             rospy.logwarn(e)
-        rospy.loginfo("[remote_cosole]Mqtt::mqtt_publish (Topic: %s)" % pub_topic)
 
     def __init_mqtt_subscribers(self):
         self.myAWSIoTMQTTClient.connect()
