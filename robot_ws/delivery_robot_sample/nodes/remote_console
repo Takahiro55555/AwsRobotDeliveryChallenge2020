@@ -18,7 +18,12 @@ import yaml
 
 
 class RemoteConsole():
-    def __init__(self, config):
+    def __init__(self, config, mqtt_subscribe_topic_prefix='remote_console_to_tros',
+                 mqtt_publish_topic_prefix='ros_to_remote_console'):
+        self.__thing_name = config["thingName"]
+        self.__mqtt_subscribe_topic_prefix = mqtt_subscribe_topic_prefix
+        self.__mqtt_publish_topic_prefix = mqtt_publish_topic_prefix
+
         subscribe_cb_list = []
         subscribe_cb_list.append({"topic": config["subscribeTopic"], "cb": self.__mqtt_sample_cb})
         self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
@@ -28,11 +33,14 @@ class RemoteConsole():
         self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
         self.__map_graph_sub = rospy.Subscriber("/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
 
+
     def main(self):
         rospy.spin()
 
+
     def __mqtt_sample_cb(self, client, userdata, message):
         pass
+
 
     def __trimed_merged_costmap_cb(self, data):
         h, w = data.info.height, data.info.width
@@ -60,7 +68,8 @@ class RemoteConsole():
             ),
             data = costmap_array
         )
-        self.__mqtt_client.mqtt_publish(pub_data, "obstacle_detector/merged_costmap/trimed")
+        pub_topic = "%s/%s/obstacle_detector/merged_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(pub_data, pub_topic)
 
 
     def __odom_cb(self, data):
@@ -97,39 +106,29 @@ class RemoteConsole():
                 covariance = data.twist.covariance
             )
         )
-        self.__mqtt_client.mqtt_publish(pub_data, "odom")
+        pub_topic = "%s/%s/odom" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(pub_data, pub_topic)
 
 
     def __map_graph_cb(self, data):
-        self.__mqtt_client.mqtt_publish(json.loads(data.data), "planner/map_graph")
+        pub_topic = "%s/%s/planner/map_graph" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(json.loads(data.data), pub_topic)
+
 
 
 class Mqtt:
     AllowedActions = ['both', 'publish', 'subscribe']
 
-    def __init__(self, config, subscribe_cb_list=[], mqtt_subscribe_topic_prefix='/remote_console_to_tros',
-                 mqtt_publish_topic_prefix='/ros_to_remote_console', client_id_prefix="mqtt_remote_console_"):
+    def __init__(self, config, subscribe_cb_list=[], client_id_prefix="mqtt_remote_console_"):
         self.__iot_data = config
-        self.__thing_name = self.__iot_data["thingName"]
-
-        self.__mqtt_subscribe_topic_prefix = mqtt_subscribe_topic_prefix
-        self.__mqtt_publish_topic_prefix = mqtt_publish_topic_prefix
         self.__subscribe_cb_list = subscribe_cb_list
-        self.__client_id = self.__thing_name + client_id_prefix + str(random.randint(0, 0x7fffffff))  # prefix なのに先頭に来ていないのは突っ込まないで...
+        self.__client_id = config["thingName"] + client_id_prefix + str(random.randint(0, 0x7fffffff))  # prefix なのに先頭に来ていないのは突っ込まないで...
 
         self.__init_mqtt_client()
         self.__init_mqtt_subscribers()
 
 
     def mqtt_publish(self, msg, topic):
-        pub_topic = topic
-        if not pub_topic[0] is '/':
-            pub_topic = self.__mqtt_publish_topic_prefix + "/" + pub_topic
-        if pub_topic[0] is '/':
-            pub_topic = self.__thing_name + pub_topic
-        else:
-            pub_topic = self.__thing_name + '/' + pub_topic
-
         try:
             json_msg = json.dumps(msg)
         except TypeError as e:
@@ -137,10 +136,11 @@ class Mqtt:
             rospy.logwarn(e)
 
         try:
-            self.myAWSIoTMQTTClient.publish(pub_topic, json_msg, 1)
+            self.myAWSIoTMQTTClient.publish(topic, json_msg, 1)
         except Exception as e:
             rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb got exception")
             rospy.logwarn(e)
+
 
     def __init_mqtt_subscribers(self):
         self.myAWSIoTMQTTClient.connect()
@@ -154,15 +154,8 @@ class Mqtt:
             if not "cb" in cb:
                 rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers cb が設定されていません。cb とはコールバック関数のことです")
                 exit(1)
+            self.myAWSIoTMQTTClient.subscribe(cb["topic"], 1, cb["cb"])
 
-            sub_topic = cb["topic"]
-            if not sub_topic[0] is '/':
-                sub_topic = self.__mqtt_subscribe_topic_prefix + "/" + sub_topic
-            if sub_topic[0] is '/':
-                sub_topic = self.__thing_name + sub_topic
-            else:
-                sub_topic = self.__thing_name + '/' + sub_topic
-            self.myAWSIoTMQTTClient.subscribe(sub_topic, 1, cb["cb"])
 
     def __init_mqtt_client(self):
         # Grab all required info from the parsed data
