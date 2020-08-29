@@ -26,6 +26,8 @@ class ObstacleDetector():
             "/obstacle_detector/costmap_image", Image, queue_size=1)
         self.__trimed_merged_costmap_pub = rospy.Publisher(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, queue_size=1)
+        self.__obstacle_detect_pub = rospy.Publisher(
+            "/obstacle_detector/msg", String, queue_size=1)
         self.__initial_global_costmap = None
         self.__local_costmap = None
         self.__threshold = 90
@@ -298,7 +300,9 @@ class ObstacleDetector():
         self.__calc_center_point(points, distance, ((self.__robot_positon.x + offset)/res, (self.__robot_positon.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
         for (x, y) in points:
             if costmap_array[y][x] >= self.__threshold:
-                rospy.logwarn("[Obstacle detector] obstacle detect!!")
+                rospy.logwarn("[Obstacle detector] Detect obstacle!!")
+                self.__obstacle_detect_pub.publish("detect_obstacle")
+                break
         # rospy.loginfo("[Obstacle detector] points:" + str(list(points)))
 
     def __calc_center_point(self, points, distance, start, end):
