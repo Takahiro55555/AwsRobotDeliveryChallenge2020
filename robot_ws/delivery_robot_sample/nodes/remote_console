@@ -24,30 +24,51 @@ class RemoteConsole():
         self.__mqtt_subscribe_topic_prefix = mqtt_subscribe_topic_prefix
         self.__mqtt_publish_topic_prefix = mqtt_publish_topic_prefix
 
+        # AWS IoT Subscriber
         subscribe_cb_list = []
-        subscribe_cb_list.append({"topic": config["subscribeTopic"], "cb": self.__mqtt_sample_cb})
+        subscribe_cb_list.append({"topic": self.__thing_name + "/remote_console_to_ros/buttons", "cb": self.__button_cb})
         self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
 
+        # ROS Publisher
+        self.__twugo_method_pub = rospy.Publisher('/twugo_method', String, queue_size=1)
+
+        # ROS Subscriber
         self.__trimed_merged_costmap_sub = rospy.Subscriber(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
         self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
         self.__map_graph_sub = rospy.Subscriber("/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
+
+        # AWS IoT には retain 機能が無いため、こちら側で最後に Publish したデータを保持しておく
+        self.__trimed_merged_costmap_pub_data = None
+        self.__odom_pub_data = None
+        self.__map_graph_pub_data = None
 
 
     def main(self):
         rospy.spin()
 
 
-    def __mqtt_sample_cb(self, client, userdata, message):
-        pass
+    def __button_cb(self, client, userdata, message):
+        data = {}
+        data['payload'] = json.loads(message.payload)
+        data['topic'] = message.topic
+        payload = data['payload']
 
+        if not "buttonName" in data['payload']:
+            rospy.logwarn("RemoteConsole::__button_cb メッセージに 'buttonName' がありません。")
+            return
+
+        if payload["buttonName"] == "btn-stop":
+            pub_data = json.dumps({"is_interrupted": True})
+            self.__twugo_method_pub.publish(pub_data)
+            rospy.loginfo("RemoteConsole::__button_cb btn-stop published: %s" % pub_data)
 
     def __trimed_merged_costmap_cb(self, data):
         h, w = data.info.height, data.info.width
         costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
 
         # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
-        pub_data = dict(
+        self.__trimed_merged_costmap_pub_data = dict(
             info = dict(
                 height = h,
                 width = w,
@@ -69,11 +90,11 @@ class RemoteConsole():
             data = costmap_array
         )
         pub_topic = "%s/%s/obstacle_detector/merged_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
-        self.__mqtt_client.mqtt_publish(pub_data, pub_topic)
+        self.__mqtt_client.mqtt_publish(self.__trimed_merged_costmap_pub_data, pub_topic)
 
 
     def __odom_cb(self, data):
-        pub_data = dict(
+        self.__odom_pub_data = dict(
             pose = dict(
                 pose = dict(
                     position = dict(
@@ -107,12 +128,13 @@ class RemoteConsole():
             )
         )
         pub_topic = "%s/%s/odom" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
-        self.__mqtt_client.mqtt_publish(pub_data, pub_topic)
+        self.__mqtt_client.mqtt_publish(self.__odom_pub_data, pub_topic)
 
 
     def __map_graph_cb(self, data):
+        self.__map_graph_pub_data = data.data
         pub_topic = "%s/%s/planner/map_graph" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
-        self.__mqtt_client.mqtt_publish(json.loads(data.data), pub_topic)
+        self.__mqtt_client.mqtt_publish_str(self.__map_graph_pub_data, pub_topic)
 
 
 
@@ -132,14 +154,21 @@ class Mqtt:
         try:
             json_msg = json.dumps(msg)
         except TypeError as e:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb JSON 文字列に変換することができませんでした")
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish JSON 文字列に変換することができませんでした")
             rospy.logwarn(e)
 
         try:
             self.myAWSIoTMQTTClient.publish(topic, json_msg, 1)
         except Exception as e:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::ros_to_mqtt_cb got exception")
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish got exception")
             rospy.logwarn(e)
+    
+    def mqtt_publish_str(self, msg, topic):
+        if not type(msg) is types.StringType:
+            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish_str メッセージ(msg)は文字列である必要があります")
+            return
+        self.myAWSIoTMQTTClient.publish(topic, msg, 1)
+        
 
 
     def __init_mqtt_subscribers(self):
@@ -155,6 +184,7 @@ class Mqtt:
                 rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers cb が設定されていません。cb とはコールバック関数のことです")
                 exit(1)
             self.myAWSIoTMQTTClient.subscribe(cb["topic"], 1, cb["cb"])
+            rospy.loginfo("[remote_sonsole]Mqtt::__init_mqtt_subscribers Topic: %s" % cb["topic"])
 
 
     def __init_mqtt_client(self):
