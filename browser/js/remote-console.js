@@ -5,6 +5,10 @@ subscribeTopics.costmap = iotclientId + "/ros_to_remote_console/obstacle_detecto
 subscribeTopics.odom = iotclientId + "/ros_to_remote_console/odom";
 subscribeTopics.mapGraph = iotclientId + "/ros_to_remote_console/planner/map_graph";
 
+const publishTopics = {};
+publishTopics.gm = "gm_" + publish_topic;
+publishTopics.btn = iotclientId + "/remote_console_to_ros/button"
+
 async function getCognitoCredentials() {
     AWS.config.region = region;
     var cognitoidentity = new AWS.CognitoIdentity();
@@ -24,9 +28,10 @@ async function getCognitoCredentials() {
 let costmap = null;
 let odom = null;
 let mapGraph = null;
+let deviceIot = null;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
-    const deviceIot = awsIot.device({
+    deviceIot = awsIot.device({
         region: region,
 
         // FIXME: Client ID をランダムにすると、複数コンソールの同時接続という問題を考えないといけなくなる...
@@ -51,7 +56,13 @@ async function setupAwsIot() {
         } else if (topic == subscribeTopics.mapGraph) {
             mapGraph = JSON.parse(payload.toString());
             backgroundLayerP5.redraw();
+        } else {
+            console.log("[" + topic + "]" + JSON.parse(payload));
         }
+
+        /**** 各種ボタンの有効化・無効化処理 ****/
+        document.getElementById("btn-start-restart").removeAttribute("disabled");
+        document.getElementById("btn-stop").removeAttribute("disabled");
     });
 
     // Subscribe する Topic を登録する
@@ -76,8 +87,9 @@ const consoleHeight = consoleWidth / 130 * 70;
 
 const background_layer_sketch = function (p) {
     p.preload = function () {
-        p.VERTEX_ID_FONT = p.loadFont('/fonts/Roboto-Black.ttf');
+        p.VERTEX_ID_FONT = p.loadFont('/font/Roboto-Black.ttf');
     };
+
     p.setup = function () {
         p.createCanvas(consoleWidth, consoleHeight);
         p.background(200);
@@ -91,7 +103,7 @@ const background_layer_sketch = function (p) {
         /*** 以下、描画処理 ***/
         drawCostMap(p);
         if (costmap != null && mapGraph != null) {
-            drawMapGraph(p, mapGraph, costmap, cellSize, consoleWidth, consoleHeight);
+            drawMapGraph(p, mapGraph, costmap, cellSize);
         }
     };
 };
@@ -142,7 +154,7 @@ function drawCostMap(p) {
     }
 }
 
-function drawMapGraph(p, mapGraph, costmap, cellSize, consoleWidth, consoleHeight) {
+function drawMapGraph(p, mapGraph, costmap, cellSize) {
     const resolution = costmap.info.resolution;
     const linkedVertexsFlag = {};
 
@@ -173,7 +185,7 @@ function drawMapGraph(p, mapGraph, costmap, cellSize, consoleWidth, consoleHeigh
     for (key in mapGraph) {
         const x0 = cellSize / resolution * (mapGraph[key].x - costmap.info.origin.position.x);
         const y0 = cellSize / resolution * (mapGraph[key].y - costmap.info.origin.position.y);
-        
+
         p.stroke("#00bfff");
         p.strokeWeight(2);
         p.fill("#00bfff");
@@ -222,6 +234,49 @@ function quaternionToEuler(quat) {
 
 /* AWS IoT へ接続する */
 setupAwsIot();
+
+/**** 以下、ボタン関係 ****/
+document.getElementById("btn-start-restart").onclick = function startRestartButton() {
+    if (deviceIot === null) {
+        return;
+    }
+    const isStarted = this.value != "start";
+
+    let payload = {};
+    console.log("Game start!");
+    request_id = (new Date()).getTime();
+    payload["command"] = "game";
+    payload["request_id"] = request_id
+
+    if (!isStarted) {
+        payload["action"] = "start";
+        deviceIot.publish(publishTopics.gm, JSON.stringify(payload));
+        this.innerHTML = "リスタート";
+        this.value = "restart";
+        this.classList.remove("btn-primary");
+        this.classList.add("btn-outline-primary");
+        return;
+    }
+    payload["action"] = "restart";
+    deviceIot.publish(publishTopics.gm, JSON.stringify(payload));
+}
+
+function toggleCard(obj, id) {
+    const pulusBtnPath = "/img/icon/plus.svg";
+    const minusBtnPath = "/img/icon/minus.svg";
+    const target = document.getElementById(id);
+
+    const isHidden = target.hasAttribute("hidden");
+    if (isHidden) {
+        // 非表示部分を表示する
+        target.removeAttribute("hidden");
+        obj.src = minusBtnPath;
+    } else {
+        // 表示部分を非表示にする
+        target.setAttribute("hidden", true);
+        obj.src = pulusBtnPath;
+    }
+}
 
 /* Sketch を DOM に追加 */
 const backgroundLayerP5 = new p5(background_layer_sketch, "background-layer");

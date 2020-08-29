@@ -8,12 +8,16 @@ body {
     padding: 0rem;
 }
 
-.logo {
+.bg-header {
     background-color: #242F3E;
 }
 
-img.logo {
+img.bg-header {
     height: 50px;
+}
+
+.bg-footer {
+    background-color: #242F3E;
 }
 
 .console {
@@ -41,4 +45,18 @@ img.logo {
 
 .btn-line-through-on-disabled:disabled{
     text-decoration: line-through;
+    background-color: transparent;
+    color: black;
+}
+
+.ui-card-header{
+    background: transparent;
+}
+
+.toggle-button-icon{
+    padding: 0;
+    margin: 0;
+    margin-bottom: 0.75rem;
+    height: 1.2rem;
+    width: 1.2rem;
 }
