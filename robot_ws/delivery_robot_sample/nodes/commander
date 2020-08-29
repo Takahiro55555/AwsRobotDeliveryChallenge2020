@@ -13,6 +13,7 @@ import rospy
 import json
 import time
 from std_msgs.msg import String
+from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Log
 from visualization_msgs.msg import Marker
@@ -29,6 +30,10 @@ class Commander():
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._path_sub = rospy.Subscriber(
             "/path", String, self.path_cb, queue_size=1)
+        self._obstacle_detect_sub = rospy.Subscriber(
+            "/obstacle_detector/msg", String, self.obstacle_detect_cb, queue_size=1)
+        self._laserscan_sub = rospy.Subscriber(
+            "/scan", LaserScan, self.laserscan_cb, queue_size=1)
         self._awsiot_to_ros_pub = rospy.Publisher(
             "/awsiot_to_ros", String, queue_size=1)
         self._twugo_method_pub = rospy.Publisher(
@@ -45,6 +50,8 @@ class Commander():
         self._is_started = False
         self._is_sended = False
         self._is_goal = False
+        self._laserscan = None
+        self._odom = None
 
     def main(self):
         rospy.spin()
@@ -75,6 +82,7 @@ class Commander():
         self._current_step = 0
 
     def odom_cb(self, data):
+        self._odom = data
         try:
             payload = {}
             if self._current_step == None:
@@ -152,6 +160,28 @@ class Commander():
             rospy.logwarn("command publisher request failed")
             rospy.logwarn(e)
 
+    def laserscan_cb(self, data):
+        self._laserscan = data
+
+    def obstacle_detect_cb(self, data):
+        ranges_len = len(self._laserscan.ranges)
+        ranges = self._laserscan.ranges
+        max_range = -float('inf')
+        for i in range(-ranges_len//4, ranges_len//4, 1):
+            if ranges[i] > max_range:
+                max_range = ranges[i]
+                max_index = i
+        direction_rad = (max_index * math.pi) / 180
+        new_x = max_range * math.cos(direction_rad) * self._odom.pose.pose.position.x
+        new_y = max_range * math.sin(direction_rad) * self._odom.pose.pose.position.y
+        planner_payload = dict(
+                create_vertex_request = True,
+                vertex_id=self._step[self._current_step]["vertex_id"],
+                next_vertex_id=self._step[self._current_step + 1]["vertex_id"],
+                new_vertex_pos_x=new_x,
+                new_vertex_pos_y=new_y
+            )
+        self._planner_pub.publish(json.dumps(planner_payload))
 
 class MqttRos:
     AllowedActions = ['both', 'publish', 'subscribe']
