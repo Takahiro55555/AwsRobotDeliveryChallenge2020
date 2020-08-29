@@ -3,6 +3,23 @@
 ## これはなに？
 宮崎大学チームの、AwsRobotDeliveryChallengeのソースコードです。  
 
+## Web UI の起動方法
+
+### 前提条件
+- docker をインストール済み
+- `docker-compose` が使用可能
+
+### 起動
+
+```
+cd AwsRobotDeliveryChallenge  # このリポジトリのルートディレクトリへ移動
+docker-compose up  # Webサーバの起動(Apache)
+```
+
+以下のリンクへ移動すると、WebUIにアクセスできます。  
+[http://localhost:8080/](http://localhost:8080/)
+
+
 ## 各ノードについて
 
 ### twugo_method
