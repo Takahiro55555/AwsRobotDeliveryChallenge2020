@@ -52,7 +52,7 @@ async function setupAwsIot() {
             frontLayerP5.redraw();
         } else if (topic == subscribeTopics.odom) {
             odom = JSON.parse(payload.toString());
-            frontLayerP5.redraw()
+            frontLayerP5.redraw();
         } else if (topic == subscribeTopics.mapGraph) {
             mapGraph = JSON.parse(payload.toString());
             backgroundLayerP5.redraw();
@@ -82,8 +82,8 @@ async function setupAwsIot() {
 
 /**** 以下、描画関係 ****/
 
-const consoleWidth = document.getElementById("console").clientWidth;
-const consoleHeight = consoleWidth / 130 * 70;
+let consoleWidth = document.getElementById("console").clientWidth;
+let consoleHeight = consoleWidth / 130 * 70;
 
 const background_layer_sketch = function (p) {
     p.preload = function () {
@@ -297,10 +297,23 @@ const backgroundLayerP5 = new p5(background_layer_sketch, "background-layer");
 const frontLayerP5 = new p5(front_layer_sketch, "front-layer");
 const backgroundLayerParent = document.getElementById("background-layer");
 const frontLayerParent = document.getElementById("front-layer");
+const consoleElement = document.getElementById("console");
 
-/* Canvas の上位Element の高さを Canvas の高さと一緒にする */
-if (backgroundLayerParent.parentElement.style.height < consoleHeight) {
-    backgroundLayerParent.parentElement.style.height = String(consoleHeight) + "px";
+function adjustCanvas() {
+    consoleWidth = consoleElement.clientWidth;
+    consoleHeight = Math.floor(consoleWidth / 130 * 70);
+
+    /* Canvas の上位Element の高さを Canvas の高さと一緒にする */
+    consoleElement.style.height = String(consoleHeight) + "px";
+    backgroundLayerParent.style.height = String(consoleHeight) + "px";
+    backgroundLayerParent.style.width = String(consoleWidth) + "px";
+    frontLayerParent.style.height = String(consoleHeight) + "px";
+    frontLayerParent.style.width = String(consoleWidth) + "px";
+
+    /* Canvas サイズの変更 */
+    backgroundLayerP5.resizeCanvas(consoleWidth, consoleHeight);
+    frontLayerP5.resizeCanvas(consoleWidth, consoleHeight);
 }
-backgroundLayerParent.style.height = String(consoleHeight) + "px";
-frontLayerParent.style.height = String(consoleHeight) + "px";
+
+adjustCanvas();
+window.onresize = adjustCanvas;
