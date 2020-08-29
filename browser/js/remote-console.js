@@ -7,7 +7,7 @@ subscribeTopics.mapGraph = iotclientId + "/ros_to_remote_console/planner/map_gra
 
 const publishTopics = {};
 publishTopics.gm = "gm_" + publish_topic;
-publishTopics.btn = iotclientId + "/remote_console_to_ros/button"
+publishTopics.buttons = iotclientId + "/remote_console_to_ros/buttons"
 
 async function getCognitoCredentials() {
     AWS.config.region = region;
@@ -254,11 +254,25 @@ document.getElementById("btn-start-restart").onclick = function startRestartButt
         this.innerHTML = "リスタート";
         this.value = "restart";
         this.classList.remove("btn-primary");
-        this.classList.add("btn-outline-primary");
+        this.classList.add("btn-success");
         return;
     }
     payload["action"] = "restart";
     deviceIot.publish(publishTopics.gm, JSON.stringify(payload));
+}
+
+document.getElementById("btn-stop").onclick = function stopButton() {
+    if (deviceIot === null) {
+        return;
+    }
+    let payload = {};
+    request_id = (new Date()).getTime();
+
+    payload["buttonName"] = "btn-stop";
+    payload["request_id"] = request_id
+    payload["isClicked"] = true;
+
+    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
 
 function toggleCard(obj, id) {
