@@ -27,7 +27,7 @@
             </div>
         </header>
         <div class="row p-3">
-            <div class="col-12 col-md-9 console" id="console">
+            <div class="col-12 col-md-9 p-0 console" id="console">
                 <!-- NOTE: 更新頻度の低いものと更新頻度の高いものをレイヤーとして分けることで、
                     　　　　キャンバス更新時の負荷を下げるため2つの Canvasを用意した。-->
                 <div class="background-layer" id="background-layer">
@@ -40,12 +40,13 @@
             <div class="col-md-2 col-12 pl-md-2">
                 <div class="row ml-md-0 p-md-0 p-sm-1">
                     <div class="card col-md-12 col-5 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
+                        <div class="card-header ui-card-header row p-0 m-0 mb-1">
                             <h6 class="card-title col-10 p-0">メイン</h6>
                             <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-main')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-main">
+                        <div class="card-body row p-0 m-0 mt-1" id="card-body-main">
+                            <hr>
                             <button type="button" class="btn btn-primary btn-lg btn-block btn-line-through-on-disabled"
                                 id="btn-start-restart" value="start" disabled>
                                 スタート
@@ -61,12 +62,12 @@
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
+                        <div class="card-header ui-card-header row p-0 m-0 mb-1">
                             <h6 class="card-title col-10 p-0">サブ</h6>
                             <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-sub')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-sub">
+                        <div class="card-body row p-0 m-0 mt-1" id="card-body-sub">
                             <button type="button" class="btn col-12 btn-primary btn-block btn-line-through-on-disabled"
                                 id="btn-retry-game" disabled>再チャレンジ</button>
                             <div class="form-group col-6 m-0 mt-2 pl-0">
@@ -81,12 +82,12 @@
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
+                        <div class="card-header ui-card-header row p-0 m-0 mb-1">
                             <h6 class="card-title col-10 p-0">モード選択</h6>
                             <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-mode-select')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-mode-select">
+                        <div class="card-body row p-0 m-0 mt-1" id="card-body-mode-select">
                             <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
                                 <label for="li-game-mode"><small>ゲームモード</small></label>
                                 <select id="li-game-mode" class="form-control">
@@ -107,12 +108,12 @@
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
+                        <div class="card-header ui-card-header row p-0 m-0 mb-1">
                             <h6 class="card-title col-10 p-0">経路情報の編集</h6>
                             <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-map-editor')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-map-editor">
+                        <div class="card-body row p-0 m-0 mt-1" id="card-body-map-editor">
                             <div class="col-12">Active vertex：<span id="txt-active-vertex">0</span></div>
                             <div class="col-12">Tolerance：<span id="txt-active-vertex-tolerance">0.15</span></div>
                             <button type="button"
