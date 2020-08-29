@@ -282,9 +282,10 @@ class ObstacleDetector():
         payload = json.loads(data.data)
         if "is_goal" in payload and payload["is_goal"]:
             return
-        self.__next_vertex_pos = Point()
-        self.__next_vertex_pos.x = payload["x"]
-        self.__next_vertex_pos.y = payload["y"]
+        if "x" in payload and "y" in payload:
+            self.__next_vertex_pos = Point()
+            self.__next_vertex_pos.x = payload["x"]
+            self.__next_vertex_pos.y = payload["y"]
 
     def __obstacle_detect(self, costmap):
         if self.__next_vertex_pos is None:
