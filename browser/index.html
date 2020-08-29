@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Remote Console</title>
+    <title>Remote Console (AWS Robot Delivery Challenge)</title>
+    <link rel="shortcut icon" href="/img/favicon.png" type="image/x-icon">
 
     <!-- FIXME: 試合時のCDNサーバ障害などによる、不具合を排除するために極力CDNは使用しないようにする -->
 
@@ -20,10 +21,11 @@
 </head>
 
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-12 logo pr-5 pt-2 pl-5 pb-2"><img src="img/logo.png" alt="logo" class="logo"></div>
-        </div>
+    <div class="container-fluid h-100">
+        <header class="row">
+            <div class="col-12 pr-5 pt-2 pl-5 pb-2 bg-header"><img src="img/logo.png" alt="logo" class="bg-header">
+            </div>
+        </header>
         <div class="row p-3">
             <div class="col-12 col-md-9 console" id="console">
                 <!-- NOTE: 更新頻度の低いものと更新頻度の高いものをレイヤーとして分けることで、
@@ -38,26 +40,33 @@
             <div class="col-md-2 col-12 pl-md-2">
                 <div class="row ml-md-0 p-md-0 p-sm-1">
                     <div class="card col-md-12 col-5 p-2 mb-md-2 m-md-0">
-                        <div class="card-body p-0 m-0">
-                            <h5 class="card-title">メイン</h5>
+                        <div class="card-header ui-card-header row p-0 m-0">
+                            <h6 class="card-title col-10 p-0">メイン</h6>
+                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                                onclick="toggleCard(this, 'card-body-main')">
+                        </div>
+                        <div class="card-body row p-0 m-0" id="card-body-main">
                             <button type="button" class="btn btn-primary btn-lg btn-block btn-line-through-on-disabled"
-                                id="btn-start-restart">
+                                id="btn-start-restart" value="start" disabled>
                                 スタート
                             </button>
                             <button type="button" class="btn btn-warning btn-block btn-line-through-on-disabled"
                                 id="btn-stop" disabled>
                                 停止
                             </button>
-                            <button type="button"
-                                class="btn btn-outline-secondary btn-block btn-line-through-on-disabled"
+                            <button type="button" class="btn btn-secondary btn-block btn-line-through-on-disabled"
                                 id="btn-retry-parking" disabled>
                                 駐車再試行
                             </button>
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-body row p-0 m-0">
-                            <h5 class="card-title col-12 p-0">サブ</h5>
+                        <div class="card-header ui-card-header row p-0 m-0">
+                            <h6 class="card-title col-10 p-0">サブ</h6>
+                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                                onclick="toggleCard(this, 'card-body-sub')">
+                        </div>
+                        <div class="card-body row p-0 m-0" id="card-body-sub">
                             <button type="button" class="btn col-12 btn-primary btn-block btn-line-through-on-disabled"
                                 id="btn-retry-game" disabled>再チャレンジ</button>
                             <div class="form-group col-6 m-0 mt-2 pl-0">
@@ -72,40 +81,55 @@
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-body row p-0 m-0">
-                            <h5 class="card-title col-12 p-0">モード選択</h5>
+                        <div class="card-header ui-card-header row p-0 m-0">
+                            <h6 class="card-title col-10 p-0">モード選択</h6>
+                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                                onclick="toggleCard(this, 'card-body-mode-select')">
+                        </div>
+                        <div class="card-body row p-0 m-0" id="card-body-mode-select">
                             <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
-                                <label for="li-game-mode">ゲームモード</label>
+                                <label for="li-game-mode"><small>ゲームモード</small></label>
                                 <select id="li-game-mode" class="form-control">
                                     <option>本戦</option>
                                     <option>決勝戦</option>
                                 </select>
                             </div>
                             <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
-                                <label for="li-run-mode">走行モード</label>
+                                <label for="li-run-mode"><small>走行モード</small></label>
                                 <select id="li-run-mode" class="form-control">
                                     <option>慎重</option>
                                     <option>攻める</option>
                                 </select>
                             </div>
                             <button type="button"
-                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2"
-                                id="btn-goto">適用</button>
+                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
+                                disabled>適用</button>
                         </div>
                     </div>
                     <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-body row p-0 m-0">
-                            <h5 class="card-title col-12 p-0">経路情報の編集</h5>
+                        <div class="card-header ui-card-header row p-0 m-0">
+                            <h6 class="card-title col-10 p-0">経路情報の編集</h6>
+                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                                onclick="toggleCard(this, 'card-body-map-editor')">
+                        </div>
+                        <div class="card-body row p-0 m-0" id="card-body-map-editor">
                             <div class="col-12">Active vertex：<span id="txt-active-vertex">0</span></div>
                             <div class="col-12">Tolerance：<span id="txt-active-vertex-tolerance">0.15</span></div>
                             <button type="button"
-                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2"
-                                id="btn-goto">適用（送信）</button>
+                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
+                                disabled>適用（送信）</button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        <footer class="row">
+            <div class="col-12 pt-5 pb-5 bg-footer text-center text-muted">
+                <a class="text-white-50" href="/game_console.html" target="blank" title="コンソール">Game Console</a> |
+                <a class="text-white-50" href="/robot_controller.html" target="blank" title="コントローラ">Robot
+                    Controller</a>
+            </div>
+        </footer>
     </div>
 </body>
 <script src="js/p5.min.js"></script>
