@@ -101,7 +101,7 @@ class TwugoMethod():
         turn_speed = ang_diff * self._turn_p
         
         linear_speed = LINERAR_MAX_SPEED*(1-abs(ang_diff)/math.pi)
-        if ang_diff > math.pi/4:
+        if abs(ang_diff) > math.pi/6:
             linear_speed = 0
 
         self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
