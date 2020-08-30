@@ -294,12 +294,12 @@ class Planner():
 
     def __create_vertex_recalc(self, payload):
         new_v = self.__generate_new_vertex(payload["new_vertex_pos_x"], payload["new_vertex_pos_x"])
-        v1 = self.__vertex_dict[payload["vertex_id"]]
-        v2 = self.__vertex_dict[payload["next_vertex_id"]]
+        v1 = self.__vertex_dict[payload["pre_vertex_id"]]
+        v2 = self.__vertex_dict[payload["vertex_id"]]
         self.__insert_vertex(v1, v2, new_v)
-        full_path = self.__calc_all_patterns(start_vertex_id=payload["vertex_id"])
+        full_path = self.__calc_all_patterns(start_vertex_id=payload["pre_vertex_id"])
         self.__send_path(full_path)
-        rospy.loginfo("[planner] recalc_route")
+        rospy.loginfo("[planner] Recalc route")
 
 class Vertex:
     def __init__(self, vertex_id, x, y, is_destination=False):
