@@ -94,6 +94,8 @@ class Commander():
             if not self._is_sended:
                 payload["x"] = self._step[self._current_step]["x"]
                 payload["y"] = self._step[self._current_step]["y"]
+                payload["pre_x"] = self._step[self._current_step-1]["x"]
+                payload["pre_y"] = self._step[self._current_step-1]["y"]
                 payload["is_goal"] = self._is_goal
                 payload["is_destination"] = self._step[self._current_step]["is_destination"]
                 self._twugo_method_pub.publish(json.dumps(payload))
@@ -166,24 +168,32 @@ class Commander():
     def obstacle_detect_cb(self, data):
         ranges_len = len(self._laserscan.ranges)
         ranges = self._laserscan.ranges
-        max_range = -float('inf')
-        for i in range(-ranges_len//24, ranges_len//24, 1):
-            if ranges[i] > max_range:
-                max_range = ranges[i]
-                max_index = i
-        robot_ang = euler_from_quaternion([
+        max_range_left = 0
+        max_range_right = 0
+        vertex_ang_rad = math.atan2(self._step[self._current_step]["y"] - self._step[self._current_step - 1]["y"], self._step[self._current_step]["x"] - self._step[self._current_step - 1]["x"])
+        vertex_ang_degree = vertex_ang_rad * 180 / math.pi
+        robot_ang_rad = euler_from_quaternion([
             self._odom.pose.pose.orientation.x, self._odom.pose.pose.orientation.y,
             self._odom.pose.pose.orientation.z, self._odom.pose.pose.orientation.w])
-        robot_ang = robot_ang[2]
-        if(max_index > 0):
-            robot_new_ang = robot_ang + math.pi/24
+        robot_ang_rad = robot_ang_rad[2]
+        robot_ang_degree = robot_ang_rad * 180 / math.pi
+        for i in range(int(-ranges_len//15 + (vertex_ang_degree - robot_ang_degree)), 0):
+            max_range_left += ranges[i]
+            # if ranges[i] > max_range_left:
+            #     max_range_left = ranges[i]
+        for i in range(0, int(ranges_len//15 + (vertex_ang_degree - robot_ang_degree))):
+            max_range_right += ranges[i]
+            # if ranges[i] > max_range_right:
+            #     max_range_right = ranges[i]
+        if(max_range_left < max_range_right):
+            robot_new_ang = robot_ang_rad + math.pi/8
         else:
-            robot_new_ang = robot_ang - math.pi/24
+            robot_new_ang = robot_ang_rad - math.pi/8
         new_range = math.sqrt((self._step[self._current_step]["x"] - self._step[self._current_step - 1]["x"])**2 + (self._step[self._current_step]["y"] - self._step[self._current_step - 1]["y"])**2) / 2
         new_x = new_range * math.cos(robot_new_ang) + self._odom.pose.pose.position.x
         new_y = new_range * math.sin(robot_new_ang) + self._odom.pose.pose.position.y
         planner_payload = dict(
-                create_vertex_request = True,
+                create_vertex_request=True,
                 pre_vertex_id=self._step[self._current_step - 1]["vertex_id"],
                 vertex_id=self._step[self._current_step]["vertex_id"],
                 new_vertex_pos_x=new_x,

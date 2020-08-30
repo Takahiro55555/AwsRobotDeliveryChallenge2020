@@ -293,10 +293,12 @@ class Planner():
         return json.dumps(map_graph_dict)
 
     def __create_vertex_recalc(self, payload):
-        new_v = self.__generate_new_vertex(payload["new_vertex_pos_x"], payload["new_vertex_pos_x"])
+        new_v = self.__generate_new_vertex(payload["new_vertex_pos_x"], payload["new_vertex_pos_y"])
         v1 = self.__vertex_dict[payload["pre_vertex_id"]]
         v2 = self.__vertex_dict[payload["vertex_id"]]
         self.__insert_vertex(v1, v2, new_v)
+        (newposx, newposy) = new_v.get_position()
+        rospy.loginfo("[planner] new_vertex x:%f y:%f"  % (newposx, newposy))
         full_path = self.__calc_all_patterns(start_vertex_id=payload["pre_vertex_id"])
         self.__send_path(full_path)
         rospy.loginfo("[planner] Recalc route")
