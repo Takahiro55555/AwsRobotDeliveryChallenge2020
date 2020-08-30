@@ -47,7 +47,6 @@ class Commander():
         self._is_started = False
         self._is_sended = False
         self._is_goal = False
-        self._laserscan = None
 
     def main(self):
         rospy.spin()
