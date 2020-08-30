@@ -46,8 +46,8 @@ class Planner():
 
     def __commander_cb(self, data):
         payload = json.loads(data.data)
-        if "create_vertex_request" in payload:
-            self.__create_vertex_recalc(payload)
+        if "remove_edge_request" in payload:
+            self.__remove_edge_recalc(payload)
             return
 
         
@@ -292,11 +292,15 @@ class Planner():
             map_graph_dict[key] = (v_dict)
         return json.dumps(map_graph_dict)
 
-    def __create_vertex_recalc(self, payload):
-        new_v = self.__generate_new_vertex(payload["new_vertex_pos_x"], payload["new_vertex_pos_y"])
+    def __remove_edge_recalc(self, payload):
         v1 = self.__vertex_dict[payload["pre_vertex_id"]]
         v2 = self.__vertex_dict[payload["vertex_id"]]
-        self.__insert_vertex(v1, v2, new_v)
+        for v1edge in v1.get_edge_list():
+            for v2edge in v1.get_edge_list():
+                if v1edge is v2edge:
+                    v1.remove_edge(v1edge)
+                    v2.remove_edge(v2edge)
+        
         full_path = self.__calc_all_patterns(start_vertex_id=payload["pre_vertex_id"])
         self.__send_path(full_path)
         rospy.loginfo("[planner] Recalc route")
