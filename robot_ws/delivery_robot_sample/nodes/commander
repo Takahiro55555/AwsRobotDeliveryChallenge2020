@@ -13,7 +13,6 @@ import rospy
 import json
 import time
 from std_msgs.msg import String
-from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from rosgraph_msgs.msg import Log
 from visualization_msgs.msg import Marker
@@ -32,8 +31,6 @@ class Commander():
             "/path", String, self.path_cb, queue_size=1)
         self._obstacle_detect_sub = rospy.Subscriber(
             "/obstacle_detector/msg", String, self.obstacle_detect_cb, queue_size=1)
-        self._laserscan_sub = rospy.Subscriber(
-            "/scan", LaserScan, self.laserscan_cb, queue_size=1)
         self._awsiot_to_ros_pub = rospy.Publisher(
             "/awsiot_to_ros", String, queue_size=1)
         self._twugo_method_pub = rospy.Publisher(
@@ -51,7 +48,6 @@ class Commander():
         self._is_sended = False
         self._is_goal = False
         self._laserscan = None
-        self._odom = None
 
     def main(self):
         rospy.spin()
@@ -82,7 +78,6 @@ class Commander():
         self._current_step = 0
 
     def odom_cb(self, data):
-        self._odom = data
         try:
             payload = {}
             if self._current_step == None:
@@ -162,8 +157,6 @@ class Commander():
             rospy.logwarn("command publisher request failed")
             rospy.logwarn(e)
 
-    def laserscan_cb(self, data):
-        self._laserscan = data
 
     def obstacle_detect_cb(self, data):
         planner_payload = dict(
