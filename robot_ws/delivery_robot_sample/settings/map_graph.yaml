@@ -92,7 +92,7 @@ vertex_list:
       
   - id: 11
     x: 1.3677
-    y: 2.6072
+    y: 2.5000
     is_destination: false
     linked_vertex_list:
       - 10
@@ -116,7 +116,7 @@ vertex_list:
       - 17
       
   - id: 14
-    x: -0.2187
+    x: -0.1000
     y: 1.5910
     is_destination: false
     linked_vertex_list:

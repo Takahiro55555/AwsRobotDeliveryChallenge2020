@@ -29,6 +29,8 @@ class Commander():
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._path_sub = rospy.Subscriber(
             "/path", String, self.path_cb, queue_size=1)
+        self._obstacle_detect_sub = rospy.Subscriber(
+            "/obstacle_detector/msg", String, self.obstacle_detect_cb, queue_size=1)
         self._awsiot_to_ros_pub = rospy.Publisher(
             "/awsiot_to_ros", String, queue_size=1)
         self._twugo_method_pub = rospy.Publisher(
@@ -86,6 +88,8 @@ class Commander():
             if not self._is_sended:
                 payload["x"] = self._step[self._current_step]["x"]
                 payload["y"] = self._step[self._current_step]["y"]
+                payload["pre_x"] = self._step[self._current_step-1]["x"]
+                payload["pre_y"] = self._step[self._current_step-1]["y"]
                 payload["is_goal"] = self._is_goal
                 payload["is_destination"] = self._step[self._current_step]["is_destination"]
                 self._twugo_method_pub.publish(json.dumps(payload))
@@ -152,6 +156,14 @@ class Commander():
             rospy.logwarn("command publisher request failed")
             rospy.logwarn(e)
 
+
+    def obstacle_detect_cb(self, data):
+        planner_payload = dict(
+                remove_edge_request=True,
+                pre_vertex_id=self._step[self._current_step - 1]["vertex_id"],
+                vertex_id=self._step[self._current_step]["vertex_id"],
+            )
+        self._planner_pub.publish(json.dumps(planner_payload))
 
 class MqttRos:
     AllowedActions = ['both', 'publish', 'subscribe']
