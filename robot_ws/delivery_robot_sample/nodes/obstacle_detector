@@ -308,7 +308,6 @@ class ObstacleDetector():
                 rospy.logwarn("[Obstacle detector] Detect obstacle!!")
                 self.__obstacle_detect_pub.publish("detect_obstacle")
                 break
-        # rospy.loginfo("[Obstacle detector] points:" + str(list(points)))
 
     def __calc_center_point(self, points, distance, start, end):
         if distance <= 0:
