@@ -16,6 +16,20 @@ cd AwsRobotDeliveryChallenge  # このリポジトリのルートディレクト
 docker-compose up  # Webサーバの起動(Apache)
 ```
 
+#### **!! `browser` ディレクトリ以外をドキュメントルートにしたい場合**
+デフォルトでは、このリポジトリの`browser`ディレクトリが HTTPサーバ のドキュメントルートになります。  
+別のディレクトリをドキュメントルートに設定したい場合は、以下のコマンドの`[path to target dir]`部分を指定したいディレクトリへのパスに置き換えてください。  
+パスは、プロジェクトルートからの相対パスでも、絶対パスでも大丈夫です。
+
+毎回パスを指定するのが面倒な場合は、`.env`ファイルを編集してください。
+
+### WebUI へのアクセス
+
+```
+AWS_WEB_UI_DIR="[path to target dir]" docker-compose up  # Webサーバの起動(Apache)
+```
+
+
 以下のリンクへ移動すると、WebUIにアクセスできます。  
 [http://localhost:8080/](http://localhost:8080/)
 
