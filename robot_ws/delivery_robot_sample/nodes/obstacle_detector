@@ -34,6 +34,7 @@ class ObstacleDetector():
         self.__robot_positon = None
         self.__trimed_merged_costmap = None
         self.__next_vertex_pos = None
+        self.__pre_vertex_pos = None
 
     def main(self):
         rate = rospy.Rate(15)  # 1Hz
@@ -288,16 +289,20 @@ class ObstacleDetector():
             self.__next_vertex_pos = Point()
             self.__next_vertex_pos.x = payload["x"]
             self.__next_vertex_pos.y = payload["y"]
+        if "pre_x" in payload and "pre_y" in payload:
+            self.__pre_vertex_pos = Point()
+            self.__pre_vertex_pos.x = payload["pre_x"]
+            self.__pre_vertex_pos.y = payload["pre_y"]
 
     def __obstacle_detect(self, costmap):
         if self.__next_vertex_pos is None:
             return
         costmap_array = costmap.get_array()
         res = costmap.get_resolution()
-        distance = math.sqrt((self.__robot_positon.x - self.__next_vertex_pos.x)**2 + (self.__robot_positon.y - self.__next_vertex_pos.y)**2) / res
+        distance = math.sqrt((self.__pre_vertex_pos.x - self.__next_vertex_pos.x)**2 + (self.__pre_vertex_pos.y - self.__next_vertex_pos.y)**2) / res
         points = set()
         offset = 10 # mapの座標, x:-10から10まで, y:-10から10まで
-        self.__calc_center_point(points, distance, ((self.__robot_positon.x + offset)/res, (self.__robot_positon.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
+        self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset)/res, (self.__pre_vertex_pos.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
         for (x, y) in points:
             if costmap_array[y][x] >= self.__threshold:
                 rospy.logwarn("[Obstacle detector] Detect obstacle!!")
