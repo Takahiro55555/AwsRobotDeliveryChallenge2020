@@ -78,9 +78,7 @@ class Planner():
         # vertex_id から 座標を取得しListに格納する
         for v in full_path:
             x, y = v.get_position()
-            tolerance = 0.2
-            if v.get_is_destination():
-                tolerance = 0.025
+            tolerance = v.get_tolerance()
             position_full_path.append(dict(
                 x = x,
                 y = y,
@@ -98,7 +96,7 @@ class Planner():
         for v in self.__vertex_list_param:
             if v["id"] in self.__vertex_dict:
                 rospy.logwarn("[Class: %s]: vertex id:%d is already exists" % (self.__class__.__name__, v["id"]))
-            vertex = Vertex(v["id"], v["x"], v["y"], v["is_destination"])
+            vertex = Vertex(v["id"], v["x"], v["y"], v["tolerance"], is_destination=v["is_destination"])
             self.__vertex_dict[v["id"]] = vertex
         # Vertex を Edge で繋ぐ
         FLAG_STR = "%d-%d"
@@ -178,7 +176,7 @@ class Planner():
         min_dist_dict[start_vertex] = 0
         # vertexに最小コストで辿り着く場合の直前のノード
         prev_vertex_dict = {}
-        prev_vertex_dict[start_vertex] = Vertex(None, None, None)
+        prev_vertex_dict[start_vertex] = Vertex(None, None, None, None)
         queue = []
         # START vertex をキューにプッシュ
         queue.append(start_vertex)
@@ -238,7 +236,7 @@ class Planner():
                     queue.append(arrival_vertex)
                     prev_vertex_dict[arrival_vertex] = prev_vertex
 
-    def __generate_new_vertex(self, x, y):
+    def __generate_new_vertex(self, x, y, tolerance):
         """新しいvertexを生成し、__vertex_dictに追加する
 
         Arguments:
@@ -249,7 +247,7 @@ class Planner():
             [Vertex] -- 生成したvertex
         """
         vertex_id = max(self.__vertex_dict.keys()) + 1
-        self.__vertex_dict[vertex_id] = Vertex(vertex_id, x, y)
+        self.__vertex_dict[vertex_id] = Vertex(vertex_id, x, y, tolerance)
         return self.__vertex_dict[vertex_id]
 
     def __insert_vertex(self, vertex1, vertex2, new_vertex):
@@ -284,6 +282,7 @@ class Planner():
             v = self.__vertex_dict[key]
             v_dict = dict(id=key, is_destination=v.get_is_destination(), is_via_point=v.get_is_via_point())
             v_dict["x"], v_dict["y"] = v.get_position()
+            v_dict["tolerance"] = v.get_tolerance()
             e_list = v.get_edge_list()
             v_dict["linked_vertex_list"] = []
             for e in e_list:
@@ -296,7 +295,7 @@ class Planner():
         v1 = self.__vertex_dict[payload["pre_vertex_id"]]
         v2 = self.__vertex_dict[payload["vertex_id"]]
         for v1edge in v1.get_edge_list():
-            for v2edge in v1.get_edge_list():
+            for v2edge in v2.get_edge_list():
                 if v1edge is v2edge:
                     v1.remove_edge(v1edge)
                     v2.remove_edge(v2edge)
@@ -307,13 +306,14 @@ class Planner():
         self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
 
 class Vertex:
-    def __init__(self, vertex_id, x, y, is_destination=False):
+    def __init__(self, vertex_id, x, y, tolerance, is_destination=False):
         self.__edge_list = []
         self.__x = x
         self.__y = y
         self.__is_destination = is_destination
         self.__is_via_point = is_destination  # スタート地点を除いて、基本的にis_destinationとis_destinationは同じ
         self.__vertex_id = vertex_id
+        self.__tolerance = tolerance
     
     def set_edge(self, edge):
         if edge in self.__edge_list:
@@ -340,6 +340,9 @@ class Vertex:
     def get_vertex_id(self):
         return self.__vertex_id
 
+    def get_tolerance(self):
+        return self.__tolerance
+
     def set_is_destination_false(self):
         self.__is_destination = False
     
@@ -348,6 +351,9 @@ class Vertex:
 
     def set_is_via_point_false(self):
         self.__is_via_point = False
+
+    def set_tolerance(self, tolerance):
+        self.__tolerance = tolerance
 
 class Edge:
     def __init__(self, vertex_a, vertex_b):
