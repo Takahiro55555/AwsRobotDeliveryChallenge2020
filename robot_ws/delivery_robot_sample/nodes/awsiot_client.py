@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
+from AWSIoTPythonSDK.exception import AWSIoTExceptions
 
 import rospy
 
@@ -22,41 +23,46 @@ class Mqtt:
         self.__init_mqtt_subscribers()
 
 
-    def mqtt_publish(self, msg, topic):
+    def mqtt_publish(self, msg, topic, qos=0):
         try:
             json_msg = json.dumps(msg)
         except TypeError as e:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish JSON 文字列に変換することができませんでした")
-            rospy.logwarn(e)
-
-        try:
-            self.myAWSIoTMQTTClient.publish(topic, json_msg, 1)
-        except Exception as e:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish got exception")
-            rospy.logwarn(e)
+            rospy.logerr("[ERROR]Mqtt::mqtt_publish JSON 文字列に変換することができませんでした")
+            rospy.logerr(e)
+        self.mqtt_publish_str(json_msg, topic, qos=qos)
     
-    def mqtt_publish_str(self, msg, topic):
+    def mqtt_publish_str(self, msg, topic, attempt_count=0, attempt_threshold=3, qos=0):
         if not type(msg) is types.StringType:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::mqtt_publish_str メッセージ(msg)は文字列である必要があります")
+            rospy.logerr("[ERROR]Mqtt::mqtt_publish_str メッセージ(msg)は文字列である必要があります")
             return
-        self.myAWSIoTMQTTClient.publish(topic, msg, 1)
+        if attempt_count > attempt_threshold:
+            rospy.logerr("[ERROR]Mqtt::mqtt_publish_str got publishTimeoutException")
+            return
         
-
-
+        try:
+            self.myAWSIoTMQTTClient.publish(topic, msg, qos)
+        except AWSIoTExceptions.publishTimeoutException  as e:
+            attempt_count+=1
+            self.mqtt_publish_str(msg, topic, attempt_count)
+            rospy.logwarn("[ERROR]Mqtt::mqtt_publish_str got publishTimeoutException (counter: %d)" % attempt_count)
+        except Exception as e:
+            rospy.logerr("[ERROR]Mqtt::mqtt_publish_str got exception")
+            rospy.logerr(e)
+        
     def __init_mqtt_subscribers(self):
         self.myAWSIoTMQTTClient.connect()
         for cb in self.__subscribe_cb_list:
             if not "topic" in cb:
-                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers topic が設定されていません")
+                rospy.logerr("[ERROR]Mqtt::__init_mqtt_subscribers topic が設定されていません")
                 exit(1)
             if not type(cb["topic"]) is types.StringType:
-                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers topic は文字列にする必要があります")
+                rospy.logerr("[ERROR]Mqtt::__init_mqtt_subscribers topic は文字列にする必要があります")
                 exit(1)
             if not "cb" in cb:
-                rospy.logerr("[ERROR][remote_sonsole]Mqtt::__init_mqtt_subscribers cb が設定されていません。cb とはコールバック関数のことです")
+                rospy.logerr("[ERROR]Mqtt::__init_mqtt_subscribers cb が設定されていません。cb とはコールバック関数のことです")
                 exit(1)
             self.myAWSIoTMQTTClient.subscribe(cb["topic"], 1, cb["cb"])
-            rospy.loginfo("[remote_sonsole]Mqtt::__init_mqtt_subscribers Topic: %s" % cb["topic"])
+            rospy.loginfo("Mqtt::__init_mqtt_subscribers Topic: %s" % cb["topic"])
 
 
     def __init_mqtt_client(self):
@@ -72,15 +78,15 @@ class Mqtt:
         self.mode = self.__iot_data['mqttMode']
 
         if self.mode not in Mqtt.AllowedActions:
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::_init_mqtt_client Unknown --mode option %s. Must be one of %s" %
+            rospy.logwarn("[ERROR]Mqtt::_init_mqtt_client Unknown --mode option %s. Must be one of %s" %
                           (self.mode, str(Mqtt.AllowedActions)))
             exit(2)
         if useWebsocket and certificatePath and privateKeyPath:
             rospy.logwarn(
-                "[ERROR][remote_sonsole]Mqtt::_init_mqtt_client X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
+                "[ERROR]Mqtt::_init_mqtt_client X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
             exit(2)
         if not useWebsocket and (not certificatePath or not privateKeyPath):
-            rospy.logwarn("[ERROR][remote_sonsole]Mqtt::_init_mqtt_client Missing credentials for authentication.")
+            rospy.logwarn("[ERROR]Mqtt::_init_mqtt_client Missing credentials for authentication.")
             exit(2)
 
         if useWebsocket:
