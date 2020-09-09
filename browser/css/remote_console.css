@@ -6,6 +6,8 @@ html {
 body {
     margin: 0rem;
     padding: 0rem;
+    min-height: 100%;
+    overflow-x: hidden;
 }
 
 .bg-header {
@@ -54,9 +56,46 @@ img.bg-header {
 }
 
 .toggle-button-icon {
+    cursor: pointer;
     padding: 0;
     margin: 0;
     margin-bottom: 0.75rem;
     height: 1.2rem;
     width: 1.2rem;
+}
+
+.close-button-icon {
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    margin-bottom: 0.75rem;
+    height: 1.2rem;
+    width: 1.2rem;
+}
+
+.console-card {
+    position: absolute;
+    cursor: move;
+    min-width: 300px;
+    max-width: 20%;
+    top: 300px;
+    left: 300px;
+    z-index: 20;
+}
+
+.draggable-card-parent {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 0px;
+    background: transparent;
+}
+
+.btn-add-remove-linked-vertex {
+    min-width: 16ch;
+}
+
+.badge-linked-vertex {
+    cursor: pointer;
+    border: 0px;
 }
