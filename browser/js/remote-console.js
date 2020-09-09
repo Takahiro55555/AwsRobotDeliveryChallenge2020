@@ -368,6 +368,8 @@ function toggleCard(obj, id) {
 function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVertexIDList) {
     const BADGE_CLASS = "badge badge-primary badge-linked-vertex m-1";
     const BADGE_CLICK_HANDLER = "copyValue(this, 'number-linked-vertex-id')";
+    let maxInputValue = null;
+    let minInputValue = null;
 
     // タイトルの設定
     const cardTitle = "Vertex Editor (ID: " + String(vertexId) + " )";
@@ -390,16 +392,30 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
     while (linkedVertexDatalistParentElm.firstChild) {
         linkedVertexDatalistParentElm.removeChild(linkedVertexDatalistParentElm.firstChild);
     }
+    if (unlinkedVertexIDList.length > 0) {
+        maxInputValue = unlinkedVertexIDList[0];
+        minInputValue = unlinkedVertexIDList[0];
+    }
     for (let i = 0; i < unlinkedVertexIDList.length; i++) {
         const newOptionElm = document.createElement("option");
         newOptionElm.setAttribute("value", unlinkedVertexIDList[i]);
         linkedVertexDatalistParentElm.appendChild(newOptionElm);
+        if (maxInputValue < unlinkedVertexIDList[i]) {
+            maxInputValue = unlinkedVertexIDList[i];
+        }
+        if (minInputValue > unlinkedVertexIDList[i]) {
+            minInputValue = unlinkedVertexIDList[i];
+        }
     }
 
     // 隣接 Vertex の設定・入力　Vertex 候補の設定
     const linkedVertexBadgeParentElm = document.getElementById("linked-vertex-badge-list");
     while (linkedVertexBadgeParentElm.firstChild) {
         linkedVertexBadgeParentElm.removeChild(linkedVertexBadgeParentElm.firstChild);
+    }
+    if (linkedVertexIdList.length > 0 && maxInputValue === null && minInputValue === null) {
+        maxInputValue = linkedVertexIdList[0];
+        minInputValue = linkedVertexIdList[0];
     }
     for (let i = 0; i < linkedVertexIdList.length; i++) {
         const newOptionElm = document.createElement("option");
@@ -412,7 +428,18 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
         newBadgeElm.setAttribute("class", BADGE_CLASS);
         newBadgeElm.setAttribute("onclick", BADGE_CLICK_HANDLER);
         linkedVertexBadgeParentElm.appendChild(newBadgeElm);
+        if (maxInputValue < linkedVertexIdList[i]) {
+            maxInputValue = linkedVertexIdList[i];
+        }
+        if (minInputValue > linkedVertexIdList[i]) {
+            minInputValue = linkedVertexIdList[i];
+        }
     }
+
+    // Vertex 入力欄の最大値・最小値の設定
+    document.getElementById("number-linked-vertex-id").setAttribute("max", String(maxInputValue));
+    document.getElementById("number-linked-vertex-id").setAttribute("min", String(minInputValue));
+
 }
 
 function closeConsoleCard(id) {
