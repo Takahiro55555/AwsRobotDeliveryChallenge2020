@@ -22,21 +22,25 @@ def main():
 
 class Planner():
     def __init__(self):
-        # latch=True にすると、新たな Subscriber が一番最後に Publish されたメッセージを受信できるようになる
-        self.__path_pub = rospy.Publisher("/path", String, queue_size=1, latch=True)
-        self.__map_graph_pub = rospy.Publisher(
-            "/planner/map_graph", String, queue_size=1, latch=True)
+        # ROS Publisher
+        #   NOTE: latch=True にすると、新たな Subscriber が一番最後に Publish されたメッセージを受信できるようになる
+        self.__path_pub = rospy.Publisher("/planner/path", String, queue_size=1, latch=True)
+        self.__map_graph_pub = rospy.Publisher("/planner/map_graph", String, queue_size=1, latch=True)
+        
+        # ROS Subscriber
         self.__commander_sub = rospy.Subscriber(
             "/commander/meta_info", String, self.__commander_cb, queue_size=1)
+        
+        # Member variables
         self.__shortest_path_dict = {}
         self.__vertex_dict = {} # self.__vertex_dict: vertexのidをキーにvertexを持っている
         self.__vertex_list_param = rospy.get_param("/vertex_list")
         self.__init_graph()  # __vertex_list_param から Vertex と Edge を作成
-
         self.__is_added_vertex = False
 
-        # NOTE: マップ情報を更新した後は、必ず以下の処理を実行すること
-        # self.__vertex_dict をJSONに変換し、Publishする
+        # Initialization process
+        #   NOTE: マップ情報を更新した後は、必ず以下の処理を実行すること
+        #   self.__vertex_dict をJSONに変換し、Publishする
         self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
 
     def main(self):
@@ -89,7 +93,7 @@ class Planner():
                 vertex_id=v.get_vertex_id()
             ))
 
-        # 作成した座標データをCommander Node に送信する
+        # 作成した座標データを Publish する
         self.__path_pub.publish(json.dumps(position_full_path))
 
     def __init_graph(self):
