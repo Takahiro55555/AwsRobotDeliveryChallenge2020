@@ -75,6 +75,7 @@ catkin_install_python(PROGRAMS
   nodes/twugo_method
   nodes/goto_method
   nodes/planner
+  nodes/awsiot_client.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
