@@ -23,12 +23,22 @@ docker-compose up  # Webサーバの起動(Apache)
 
 毎回パスを指定するのが面倒な場合は、`.env`ファイルを編集してください。
 
-### WebUI へのアクセス
-
 ```
 AWS_WEB_UI_DIR="[path to target dir]" docker-compose up  # Webサーバの起動(Apache)
 ```
 
+#### **!! ポート番号を指定したい場合**
+デフォルトでは、`8080`番ポートを使用してHTTPサーバへアクセスするようにしています。  
+別のポートを指定したい場合は、以下のコマンドの`[port number]`部分を指定したいポート番号に置き換えてください。  
+
+毎回ポート番号を指定するのが面倒な場合は、`.env`ファイルを編集してください。
+
+```
+AWS_WEB_UI_PORT="[port number]" docker-compose up  # Webサーバの起動(Apache)
+# AWS_WEB_UI_PORT="[port number]" AWS_WEB_UI_DIR="[path to target dir]" docker-compose up  # ポート番号とドキュメントルートを両方とも指定する場合
+```
+
+### WebUI へのアクセス
 
 以下のリンクへ移動すると、WebUIにアクセスできます。  
 [http://localhost:8080/](http://localhost:8080/)
