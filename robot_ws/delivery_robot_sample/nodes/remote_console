@@ -10,6 +10,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 import numpy as np
 
 import os
+import types
 import json
 import yaml
 
@@ -17,34 +18,61 @@ import yaml
 class RemoteConsole():
     def __init__(self, config, mqtt_subscribe_topic_prefix='remote_console_to_tros',
                  mqtt_publish_topic_prefix='ros_to_remote_console'):
+        # AWS IoT Settings
         self.__thing_name = config["thingName"]
         self.__mqtt_subscribe_topic_prefix = mqtt_subscribe_topic_prefix
         self.__mqtt_publish_topic_prefix = mqtt_publish_topic_prefix
 
         # AWS IoT Subscriber
+        #   NOTE: Subscribe する Topic と対応するコールバック関数は、2つをまとめた辞書のリストを Mqtt クラスのコンストラクタに渡すことで設定する
         subscribe_cb_list = []
         subscribe_cb_list.append({"topic": self.__thing_name + "/remote_console_to_ros/buttons", "cb": self.__button_cb})
+        subscribe_cb_list.append({"topic": self.__thing_name + "/remote_console_to_ros/request_data", "cb": self.__request_data_cb})
         self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
 
+        # AWS IoT には retain 機能が無いため、こちら側で最後に Publish したデータを保持しておく
+        self.__odom_pub_data = None
+        self.__trimed_merged_costmap_pub_data = None
+        self.__map_graph_pub_data = None
+        self.__path_pub_data = None
+        self.__status_list = {  # ロボットがとりうる状態
+            "initializing": {"status": "initializing" , "msg": "初期化処理中 >>>走行不能<<<"},
+            "ready": {"status": "ready" , "msg": "走行可能（スタート可能）"},
+            "running": {"status": "running" , "msg": "走行中（停止・手動操作可能）"},
+            "delivery": {"status": "delivery" , "msg": "配達ポイントへ到着（リスタート・手動操作可能）"},
+            "goal": {"status": "goal" , "msg": "ゴールへ到着（リトライ・手動操作可能）"},
+            "error": {"status": "error" , "msg": "エラー発生 >>>走行不能<<<"},
+            "terminating": {"status": "terminating" , "msg": "終了中 >>>走行不能<<<"}
+        }
+        self.__current_status = self.__status_list["initializing"]  # 現在のロボットの状態を保持する
+
+        # AWS IoT へ各種データを Publish する関数
+        #   NOTE: 辞書にまとめておくと、すべてのデータを Publish したいときに便利
+        self.__data_publish_funcs = {}  # AWS IoT へデータを Publish する関数をまとめた辞書
+        self.__data_publish_funcs['costmap'] = self.__publish_trimed_merged_costmap_to_aws_iot
+        self.__data_publish_funcs['currentStatus'] = self.__publish_current_status_to_aws_iot
+        self.__data_publish_funcs['odom'] = self.__publish_odom_to_aws_iot
+        self.__data_publish_funcs['path'] = self.__publish_path_to_aws_iot
+        self.__data_publish_funcs['mapGraph'] = self.__publish_map_graph_to_aws_iot
+
         # ROS Publisher
-        self.__twugo_method_pub = rospy.Publisher('/twugo_method', String, queue_size=1)
+        #   NOTE: latch=True にすると、新たな Subscriber が一番最後に Publish されたメッセージを受信できるようになる
+        self.__twugo_method_pub = rospy.Publisher('/twugo_method', String, queue_size=1, latch=True)
+        self.__to_commander_pub = rospy.Publisher('/remote_console/to_commander', String, queue_size=1, latch=True)
 
         # ROS Subscriber
         self.__trimed_merged_costmap_sub = rospy.Subscriber(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
         self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
         self.__map_graph_sub = rospy.Subscriber("/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
-
-        # AWS IoT には retain 機能が無いため、こちら側で最後に Publish したデータを保持しておく
-        self.__trimed_merged_costmap_pub_data = None
-        self.__odom_pub_data = None
-        self.__map_graph_pub_data = None
+        self.__map_graph_sub = rospy.Subscriber("/planner/path", String, self.__path_cb, queue_size=1)
+        self.__robot_status_sub = rospy.Subscriber("/remote_console/update_status", String, self.__robot_status_cb, queue_size=1)
 
 
     def main(self):
         rospy.spin()
 
-
+    ############ AWS IoT callback hundler ############
     def __button_cb(self, client, userdata, message):
         data = {}
         data['payload'] = json.loads(message.payload)
@@ -52,45 +80,59 @@ class RemoteConsole():
         payload = data['payload']
 
         if not "buttonName" in data['payload']:
-            rospy.logwarn("RemoteConsole::__button_cb メッセージに 'buttonName' がありません。")
+            rospy.logwarn("[RemoteConsole::__button_cb] メッセージに 'buttonName' がありません。")
             return
 
-        if payload["buttonName"] == "btn-stop":
+        if payload["buttonName"] == "btn-start" and payload["isClicked"]:
+            pub_data = json.dumps({"action": "start"})
+            self.__to_commander_pub.publish(pub_data)
+            rospy.loginfo("[RemoteConsole::__button_cb] btn-start published: %s" % pub_data)
+        
+        if payload["buttonName"] == "btn-restart" and payload["isClicked"]:
+            pub_data = json.dumps({"action": "restart"})
+            self.__to_commander_pub.publish(pub_data)
+            rospy.loginfo("[RemoteConsole::__button_cb] btn-restart published: %s" % pub_data)
+
+        if payload["buttonName"] == "btn-stop" and payload["isClicked"]:
             pub_data = json.dumps({"is_interrupted": True})
             self.__twugo_method_pub.publish(pub_data)
-            rospy.loginfo("RemoteConsole::__button_cb btn-stop published: %s" % pub_data)
+            rospy.loginfo("[RemoteConsole::__button_cb] btn-stop published: %s" % pub_data)
 
-    def __trimed_merged_costmap_cb(self, data):
-        h, w = data.info.height, data.info.width
-        costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
+        if payload["buttonName"] == "btn-retry-game" and payload["isClicked"]:
+            pub_data = json.dumps({"action": "retryGame"})
+            # TODO: ゲーム再スタート用の処理
 
-        # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
-        self.__trimed_merged_costmap_pub_data = dict(
-            info = dict(
-                height = h,
-                width = w,
-                resolution = data.info.resolution,
-                origin = dict(
-                    position = dict(
-                        x = data.info.origin.position.x,
-                        y = data.info.origin.position.y,
-                        z = data.info.origin.position.z
-                    ),
-                    orientation = dict(
-                        x = data.info.origin.orientation.x,
-                        y = data.info.origin.orientation.y,
-                        z = data.info.origin.orientation.z,
-                        w = data.info.origin.orientation.w
-                    )
-                )
-            ),
-            data = costmap_array
-        )
-        pub_topic = "%s/%s/obstacle_detector/merged_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
-        self.__mqtt_client.mqtt_publish(self.__trimed_merged_costmap_pub_data, pub_topic)
+    def __request_data_cb(self, client, userdata, message):
+        data = {}
+        data['payload'] = json.loads(message.payload)
+        data['topic'] = message.topic
+        payload = data['payload']
+        
+        if not type(payload) is types.DictionaryType:
+            rospy.logwarn("[RemoteConsole::__request_data_cb] Request message format is not valid. 辞書型である必要があります。")
+            return
+        if not 'requestDataList' in payload:
+            rospy.logwarn("[RemoteConsole::__request_data_cb] Request message format is not valid. メッセージ中に 'requestDataList' がありません。")
+            return
+        if not type(payload['requestDataList']) is types.ListType:
+            rospy.logwarn("[RemoteConsole::__request_data_cb] Request message format is not valid. 'requestDataList' のフォーマットはListである必要があります。")
+            return
+        if 'all' in payload['requestDataList']:
+            for key in self.__data_publish_funcs:
+                self.__data_publish_funcs[key]()
+            return
+        for key in payload['requestDataList']:
+            if key in self.__data_publish_funcs:
+                self.__data_publish_funcs[key]()
+            else:
+                rospy.logwarn("[RemoteConsole::__request_data_cb] Requested data (%s) is not found." % key)
+        
 
-
+    ############ ROS Topic callback hundler ############
     def __odom_cb(self, data):
+        if self.__current_status["status"] == self.__status_list["initializing"]["status"]:
+            self.__current_status = self.__status_list["ready"]
+            self.__publish_current_status_to_aws_iot()
         self.__odom_pub_data = dict(
             pose = dict(
                 pose = dict(
@@ -124,12 +166,88 @@ class RemoteConsole():
                 covariance = data.twist.covariance
             )
         )
-        pub_topic = "%s/%s/odom" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
-        self.__mqtt_client.mqtt_publish(self.__odom_pub_data, pub_topic)
+        self.__publish_odom_to_aws_iot()
 
+    def __path_cb(self, data):
+        try:
+            payload = json.loads(data.data)
+        except Exception as e:
+            rospy.logerr("RemoteConsole::__path_cb %s" % e)
+            return
+        self.__path_pub_data = payload
+        self.__publish_path_to_aws_iot()
+
+    def __robot_status_cb(self, data):
+        # TODO: 現在の状態を更新する処理
+        payload = data.data
+        self.__publish_current_status_to_aws_iot()
+
+    def __trimed_merged_costmap_cb(self, data):
+        h, w = data.info.height, data.info.width
+        costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
+
+        # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
+        self.__trimed_merged_costmap_pub_data = dict(
+            info = dict(
+                height = h,
+                width = w,
+                resolution = data.info.resolution,
+                origin = dict(
+                    position = dict(
+                        x = data.info.origin.position.x,
+                        y = data.info.origin.position.y,
+                        z = data.info.origin.position.z
+                    ),
+                    orientation = dict(
+                        x = data.info.origin.orientation.x,
+                        y = data.info.origin.orientation.y,
+                        z = data.info.origin.orientation.z,
+                        w = data.info.origin.orientation.w
+                    )
+                )
+            ),
+            data = costmap_array
+        )
+        self.__publish_trimed_merged_costmap_to_aws_iot()
 
     def __map_graph_cb(self, data):
         self.__map_graph_pub_data = data.data
+        self.__publish_map_graph_to_aws_iot()
+
+
+    ############ AWS IoT publish sub-routine ############
+    def __publish_current_status_to_aws_iot(self):
+        if self.__current_status is None:
+            rospy.logwarn("[RemoteConsole::__publish_current_status_to_aws_iot] __current_status is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/remote_console/current_status" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__current_status, pub_topic)
+
+    def __publish_odom_to_aws_iot(self):
+        if self.__odom_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_odom_to_aws_iot] __odom_pub_data is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/odom" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__odom_pub_data, pub_topic)
+
+    def __publish_path_to_aws_iot(self):
+        if self.__path_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_path_to_aws_iot] __path_data is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/planner/path" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__path_pub_data, pub_topic)
+
+    def __publish_trimed_merged_costmap_to_aws_iot(self):
+        if self.__trimed_merged_costmap_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_trimed_merged_costmap_to_aws_iot] __trimed_merged_costmap_pub_data is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/obstacle_detector/merged_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__trimed_merged_costmap_pub_data, pub_topic)
+
+    def __publish_map_graph_to_aws_iot(self):
+        if self.__map_graph_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_map_graph_to_aws_iot] __map_graph_pub_data is None, so can not publish data.")
+            return
         pub_topic = "%s/%s/planner/map_graph" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
         self.__mqtt_client.mqtt_publish_str(self.__map_graph_pub_data, pub_topic)
 
