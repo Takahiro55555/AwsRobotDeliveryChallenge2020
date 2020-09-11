@@ -84,6 +84,7 @@ class Commander():
             self._is_started = False
             self._is_sended = False
             self._is_goal = False
+            self._twugo_method_restart_pub.publish(json.dumps({"data": "is_retry"}))
             self._remoteconsole_update_status_pub.publish(json.dumps({"status": "ready"}))
                 
     def path_cb(self, data):
@@ -134,41 +135,6 @@ class Commander():
                     self._twugo_method_pub.publish(json.dumps(payload))
                     self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goal"}))
                     rospy.loginfo("Is Goal!!!!!!!!")
-
-            # ここは走行経路表示
-            # if not self._current_step is 0:
-            #     marker_data = Marker()
-            #     marker_data.header.frame_id = "map"
-            #     marker_data.header.stamp = rospy.Time.now()
-            #     marker_data.ns = "basic_shapes"
-            #     marker_data.action = Marker.ADD
-            #     marker_data.type = Marker.LINE_STRIP
-
-            #     marker_data.pose.orientation.x = 0.0
-            #     marker_data.pose.orientation.y = 0.0
-            #     marker_data.pose.orientation.z = 1.0
-            #     marker_data.pose.orientation.w = 0.0
-
-            #     marker_data.color.r = 1.0
-            #     marker_data.color.g = 0.0
-            #     marker_data.color.b = 0.0
-            #     marker_data.color.a = 1.0
-
-            #     marker_data.scale.x = 0.01
-
-            #     marker_data.points = []
-            #     p1 = Point()
-            #     p1.x = -data.pose.pose.position.x
-            #     p1.y = -data.pose.pose.position.y
-            #     p1.z = 0.0
-            #     marker_data.points.append(p1)
-            #     p2 = Point()
-            #     p2.x = -self._step[self._current_step]["x"]
-            #     p2.y = -self._step[self._current_step]["y"]
-            #     p2.z = 0.0
-            #     marker_data.points.append(p2)
-
-            #     self._marker_pub.publish(marker_data)
 
         except Exception as e:
             rospy.logwarn("command publisher request failed")

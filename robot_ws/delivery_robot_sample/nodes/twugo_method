@@ -44,6 +44,7 @@ class TwugoMethod():
         self._is_stoped = False
         self._is_started = False
         self._is_before_destination = False  # 目標地点に到達する前に停止しないようにするためのフラグ
+        self._is_retry_rotating = False      # リトライするときにロボットをスタート地点で正面を向かせるためのフラグ
         self._turn_p = 0.95
         self._x_goal = 0
         self._y_goal = 0
@@ -79,11 +80,25 @@ class TwugoMethod():
         以下、再スタートさせる際のコマンドの例
         $ rostopic pub --once -v /twugo_method/restart std_msgs/String '{data: "hoge"}'
         """
+
+        # retryするとき、正面を向かせる。
+        payload = json.loads(data.data)
+        if "data" in payload and payload["data"] == "is_retry":
+            rospy.loginfo('[TwugoMethod] Retry now.')
+            self._is_retry_rotating = True
+            return
+
         self._is_started = True
 
     def odom_cb(self, data):
         self._odom = data
         self._next_synctime = time.time() + 0.3
+
+        # リトライのために正面を向かせる
+        if self._is_retry_rotating:
+            self.rotate_robot(1.0, 0.0)
+            return
+
         if not self._is_started and not self._is_stoped:
             self._twist.linear.x = 0
             self._twist.angular.z = 0
@@ -91,6 +106,7 @@ class TwugoMethod():
             self._is_stoped = True
         if not self._is_started:
             return
+
         self.goto_point(self._x_goal, self._y_goal)
 
     def goto_point(self, x, y):
@@ -116,6 +132,28 @@ class TwugoMethod():
             turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
         self._cmd_pub.publish(self._twist)
         self._is_stoped = False
+
+    def rotate_robot(self, x, y):           # x, yは向かせたい座標
+        if self._odom == None:
+            rospy.logwarn('[TwugoMethod().goto_point]odom is null.')
+            return
+        r_x, r_y = self._odom.pose.pose.position.x, self._odom.pose.pose.position.y
+        r_ang_qua = tf.transformations.euler_from_quaternion([
+            self._odom.pose.pose.orientation.x, self._odom.pose.pose.orientation.y,
+            self._odom.pose.pose.orientation.z, self._odom.pose.pose.orientation.w])
+        r_ang = r_ang_qua[2]
+        atan2_tmp = math.atan2(y - r_y, x - r_x)
+        ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
+                              math.cos(atan2_tmp - r_ang))
+        turn_speed = ang_diff * self._turn_p
+        if abs(ang_diff) < math.pi/12:
+            self._is_retry_rotating = False
+        self._twist.linear.x = 0
+        self._twist.angular.z = self.sign(
+            turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
+        self._cmd_pub.publish(self._twist)
+        self._is_stoped = False
+        
 
     def judge_is_on_line(self, p1_x, p1_y, p2_x, p2_y):
         if self._odom == None:
