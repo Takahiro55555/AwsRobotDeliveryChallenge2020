@@ -21,31 +21,99 @@
 </head>
 
 <body>
+    <div class="container-fluid p-0 draggable-card-parent">
+        <div class="card console-card" id="card-console-editor" draggable="true" hidden>
+            <div class="card-header">
+                <div class="row">
+                    <h6 class="card-title col-10 p-0 mb-0" id="txt-console-card-title"></h6>
+                    <img class="toggle-button-icon col-1 mb-0" src="/img/icon/minus.svg"
+                        onclick="toggleCard(this, 'card-body-console-editor')">
+                    <img class="close-button-icon col-1 mb-0" src="/img/icon/x-circle.svg"
+                        onclick="closeConsoleCard('card-console-editor')">
+                </div>
+            </div>
+            <div class="card-body p-2 pl-4 pr-4" id="card-body-console-editor">
+                <div class="row">
+                    <div class="form-group form-check col-12">
+                        <input class="form-check-input" type="checkbox" id="checkbox-vertex-is-destination">
+                        <label class="form-check-label" for="checkbox-vertex-is-destination">
+                            is_destination
+                        </label>
+                    </div>
+                    <div class="form-group form-check col-12">
+                        <input class="form-check-input" type="checkbox" id="checkbox-vertex-is-via-point">
+                        <label class="form-check-label" for="checkbox-vertex-is-via-point">
+                            is_via_point
+                        </label>
+                    </div>
+                    <div class="input-group input-group-sm col-6 pl-0 pb-1">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="inputGroup-vertex-coordinate-x">X</span>
+                        </div>
+                        <input class="form-control" id="number-vertex-coordinate-x" type="number" step="0.1"
+                            aria-label="X 座標" aria-describedby="inputGroup-vertex-coordinate-x">
+                    </div>
+                    <div class="input-group input-group-sm col-6 pl-0 pr-0 pb-1">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="inputGroup-vertex-coordinate-y">Y</span>
+                        </div>
+                        <input class="form-control" id="number-vertex-coordinate-y" type="number" step="0.1"
+                            aria-label="Y 座標" aria-describedby="inputGroup-vertex-coordinate-y">
+                    </div>
+                    <hr>
+                    <div class="col-12 pl-0 pr-0 mt-2">
+                        Linked Vertex ID
+                        <div id="linked-vertex-badge-list">
+                            <!-- activeVertex と直接繋がっている Vertex のバッジボタン -->
+                        </div>
+                    </div>
+                    <div class="input-group input-group-sm col-12 pl-0 pr-0 mt-1 mb-2">
+                        <input class="form-control" id="number-linked-vertex-id" type="number" placeholder="Vertex ID"
+                            list="datalist-vertex-id" step="1" value aria-label="Vertex ID"
+                            aria-describedby="button-addon2" oninput="updateLinkedVertexButton(this)">
+                        <div class="input-group-append btn-add-remove-linked-vertex">
+                            <button class="btn btn-outline-secondary btn-block btn-line-through-on-disabled"
+                                id="btn-add-remove-linked-vertex" type="button" disabled>Add or Remove</button>
+                        </div>
+                        <datalist id="datalist-vertex-id">
+                            <!-- 接続・切断対称のVertexIdのリスト -->
+                        </datalist>
+                    </div>
+                    <button type="button" class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2"
+                        id="btn-console-vertex-apply" disabled>適用</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="container-fluid h-100">
         <header class="row">
             <div class="col-12 pr-5 pt-2 pl-5 pb-2 bg-header"><img src="img/logo.png" alt="logo" class="bg-header">
             </div>
         </header>
         <div class="row p-3">
-            <div class="col-12 col-md-9 console" id="console">
+            <div class="col-9 p-0 console" id="console">
                 <!-- NOTE: 更新頻度の低いものと更新頻度の高いものをレイヤーとして分けることで、
                     　　　　キャンバス更新時の負荷を下げるため2つの Canvasを用意した。-->
                 <div class="background-layer" id="background-layer">
                     <!-- ユーザ(ブラウザ側)の操作から影響を受けず、更新頻度の少ない部分の描画を担当 -->
                 </div>
+                <div class="middle-layer" id="middle-layer">
+                    <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->l
+                </div>
                 <div class="front-layer" id="front-layer">
                     <!-- ユーザの操作からの影響を受けやすく、更新頻度の高いUIなどの部分の描画を担当 -->
                 </div>
             </div>
-            <div class="col-md-2 col-12 pl-md-2">
-                <div class="row ml-md-0 p-md-0 p-sm-1">
-                    <div class="card col-md-12 col-5 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
-                            <h6 class="card-title col-10 p-0">メイン</h6>
-                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+            <div class="col-3 pl-2">
+                <div class="row ml-0 p-0">
+                    <div class="card col-12 col-5 p-0 mb-2 m-0">
+                        <div class="card-header row p-2 m-0 mb-1">
+                            <h6 class="card-title col-10 p-0 mb-0">メイン</h6>
+                            <img class="toggle-button-icon col-2 mb-0" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-main')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-main">
+                        <div class="card-body row p-2 m-0 mt-1" id="card-body-main">
+                            <hr>
                             <button type="button" class="btn btn-primary btn-lg btn-block btn-line-through-on-disabled"
                                 id="btn-start-restart" value="start" disabled>
                                 スタート
@@ -60,13 +128,13 @@
                             </button>
                         </div>
                     </div>
-                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
-                            <h6 class="card-title col-10 p-0">サブ</h6>
-                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                    <div class="card col-12 offset-2 p-0 mb-2 m-0">
+                        <div class="card-header row p-2 m-0 mb-1">
+                            <h6 class="card-title col-10 p-0 mb-0">サブ</h6>
+                            <img class="toggle-button-icon col-2 mb-0" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-sub')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-sub">
+                        <div class="card-body row p-2 m-0 mt-1" id="card-body-sub">
                             <button type="button" class="btn col-12 btn-primary btn-block btn-line-through-on-disabled"
                                 id="btn-retry-game" disabled>再チャレンジ</button>
                             <div class="form-group col-6 m-0 mt-2 pl-0">
@@ -80,13 +148,13 @@
                                 disabled>GoTo</button>
                         </div>
                     </div>
-                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
-                            <h6 class="card-title col-10 p-0">モード選択</h6>
-                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                    <div class="card col-12 offset-2 p-0 mb-2 m-0">
+                        <div class="card-header row p-2 m-0 mb-1">
+                            <h6 class="card-title col-10 p-0 mb-0">モード選択</h6>
+                            <img class="toggle-button-icon col-2 mb-0" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-mode-select')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-mode-select">
+                        <div class="card-body row p-2 m-0 mt-1" id="card-body-mode-select">
                             <div class="form-group col-12 m-0 mt-2 pl-0 pr-0">
                                 <label for="li-game-mode"><small>ゲームモード</small></label>
                                 <select id="li-game-mode" class="form-control">
@@ -106,13 +174,13 @@
                                 disabled>適用</button>
                         </div>
                     </div>
-                    <div class="card col-md-12 col-5 offset-2 p-2 mb-md-2 m-md-0">
-                        <div class="card-header ui-card-header row p-0 m-0">
-                            <h6 class="card-title col-10 p-0">経路情報の編集</h6>
-                            <img class="toggle-button-icon col-2" src="/img/icon/minus.svg"
+                    <div class="card col-12 offset-2 p-0 mb-2 m-0">
+                        <div class="card-header row p-2 m-0 mb-1">
+                            <h6 class="card-title col-10 p-0 mb-0">経路情報の編集</h6>
+                            <img class="toggle-button-icon col-2 mb-0" src="/img/icon/minus.svg"
                                 onclick="toggleCard(this, 'card-body-map-editor')">
                         </div>
-                        <div class="card-body row p-0 m-0" id="card-body-map-editor">
+                        <div class="card-body row p-2 m-0 mt-1" id="card-body-map-editor">
                             <div class="col-12">Active vertex：<span id="txt-active-vertex">0</span></div>
                             <div class="col-12">Tolerance：<span id="txt-active-vertex-tolerance">0.15</span></div>
                             <button type="button"
