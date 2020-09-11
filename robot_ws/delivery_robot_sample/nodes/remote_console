@@ -41,6 +41,8 @@ class RemoteConsole():
             "running": {"status": "running" , "msg": "走行中（停止・手動操作可能）"},
             "delivery": {"status": "delivery" , "msg": "配達ポイントへ到着（リスタート・手動操作可能）"},
             "goal": {"status": "goal" , "msg": "ゴールへ到着（リトライ・手動操作可能）"},
+            "stop": {"status": "stop" , "msg": "停止中（リスタート・手動操作可能）"},
+            "manual": {"status": "manual" , "msg": "手動操作中（リスタート可能）"},
             "error": {"status": "error" , "msg": "エラー発生 >>>走行不能<<<"},
             "terminating": {"status": "terminating" , "msg": "終了中 >>>走行不能<<<"}
         }
@@ -79,7 +81,7 @@ class RemoteConsole():
         data['topic'] = message.topic
         payload = data['payload']
 
-        if not "buttonName" in data['payload']:
+        if "buttonName" not in data['payload']:
             rospy.logwarn("[RemoteConsole::__button_cb] メッセージに 'buttonName' がありません。")
             return
 
@@ -100,7 +102,7 @@ class RemoteConsole():
 
         if payload["buttonName"] == "btn-retry-game" and payload["isClicked"]:
             pub_data = json.dumps({"action": "retryGame"})
-            # TODO: ゲーム再スタート用の処理
+            self.__to_commander_pub.publish(pub_data)
 
     def __request_data_cb(self, client, userdata, message):
         data = {}
@@ -169,6 +171,8 @@ class RemoteConsole():
         self.__publish_odom_to_aws_iot()
 
     def __path_cb(self, data):
+        self.__current_status = self.__status_list["running"]
+        self.__publish_current_status_to_aws_iot()
         try:
             payload = json.loads(data.data)
         except Exception as e:
@@ -178,8 +182,15 @@ class RemoteConsole():
         self.__publish_path_to_aws_iot()
 
     def __robot_status_cb(self, data):
-        # TODO: 現在の状態を更新する処理
-        payload = data.data
+        payload = json.loads(data.data)
+        if "status" not in payload:
+            rospy.logerr("RemoteConsole::__robot_status_cb KEY 'status' がありません")
+            return
+        status = payload["status"]
+        if status not in self.__status_list:
+            rospy.logerr("RemoteConsole::__robot_status_cb '%s' は定義されていない「状態」です" % status)
+            return
+        self.__current_status = self.__status_list[status]
         self.__publish_current_status_to_aws_iot()
 
     def __trimed_merged_costmap_cb(self, data):

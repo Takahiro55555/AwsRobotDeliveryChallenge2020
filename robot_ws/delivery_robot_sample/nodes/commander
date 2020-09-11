@@ -4,8 +4,10 @@
 # このノードは navigation スタックへの操作を経路ファイルから行います
 #
 
-import rospy
 import json
+import time
+
+import rospy
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import Marker
@@ -14,7 +16,7 @@ from geometry_msgs.msg import Point
 
 class Commander():
     def __init__(self):
-        # ROS Publisher
+        # ROS Subscriber
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._path_sub = rospy.Subscriber(
@@ -23,8 +25,8 @@ class Commander():
             "/obstacle_detector/msg", String, self.obstacle_detect_cb, queue_size=1)
         self._remote_console_sub = rospy.Subscriber(
             '/remote_console/to_commander', String, self.__remote_console_cb, queue_size=1)
-        
-        # ROS Subscriber
+
+        # ROS Publisher
         self._twugo_method_pub = rospy.Publisher(
             "/twugo_method", String, queue_size=1)
         self._planner_pub = rospy.Publisher(
@@ -33,6 +35,8 @@ class Commander():
             "/twugo_method/restart", String, queue_size=1)
         self._marker_pub = rospy.Publisher(
             "/way_line", Marker, queue_size=10)
+        self._remoteconsole_update_status_pub = rospy.Publisher(
+            "/remote_console/update_status", String, queue_size=1)
 
         # Member variable
         self._current_step = None
@@ -46,25 +50,45 @@ class Commander():
 
     def __remote_console_cb(self, data):
         payload = json.loads(data.data)
-        if "action" in payload:
-            if payload["action"] == "start":
-                rospy.loginfo("detect start!!")
-                self._is_started = True
-                self._is_sended = False
-                self._is_goal = False
-                self._current_step = 0
-                planner_payload = {}
-                planner_payload["is_started"] = self._is_started
-                self._planner_pub.publish(json.dumps(planner_payload))
-                self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start"}))
+        if "action" not in payload:
+            return
+        if payload["action"] == "start":
+            rospy.loginfo("detect start!!")
+            planner_payload = {}
+            planner_payload["is_started"] = True
+            self._planner_pub.publish(json.dumps(planner_payload))
+            for i in range(1, 31):
+                if len(self._step) > 0:
+                    break
+                time.sleep(1)
+                rospy.loginfo("[Commander::__remote_console_cb] 経路計算の結果を待機しています... [%d s]" % i)
+            if len(self._step) == 0:
+                rospy.logerr("[Commander::__remote_console_cb] 経路計算に失敗しました")
+                return
+                
+            self._is_started = True
+            self._is_sended = False
+            self._is_goal = False
+            self._current_step = 0    
+            self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start"}))
+            self._remoteconsole_update_status_pub.publish(json.dumps({"status": "running"}))
 
-            if payload["action"] == "restart" and self._is_started:
-                rospy.loginfo("detect restart!!")
-                self._twugo_method_restart_pub.publish(json.dumps({"data": "is_restart"}))
+        if payload["action"] == "restart" and self._is_started:
+            rospy.loginfo("detect restart!!")
+            self._twugo_method_restart_pub.publish(json.dumps({"data": "is_restart"}))
+            self._remoteconsole_update_status_pub.publish(json.dumps({"status": "running"}))
+        
+        if payload["action"] == "retryGame" and self._is_goal:
+            self._current_step = None
+            self._step = []
+            self._is_started = False
+            self._is_sended = False
+            self._is_goal = False
+            self._remoteconsole_update_status_pub.publish(json.dumps({"status": "ready"}))
                 
     def path_cb(self, data):
         payload = json.loads(data.data)
-        # rospy.loginfo("[On commander][payload] %s" % payload)
+        rospy.loginfo("Commander::path_cb %s" % payload)
         self._step = payload
         self._current_step = 0
 
@@ -98,6 +122,7 @@ class Commander():
                 self._planner_pub.publish(json.dumps(planner_payload))
 
                 if self._step[self._current_step]["is_destination"]:
+                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "delivery"}))
                     rospy.loginfo("HELLO!!! This is Amazon!!!!")
                 
                 self._current_step += 1
@@ -107,42 +132,43 @@ class Commander():
                     self._is_goal = True
                     payload["is_goal"] = self._is_goal
                     self._twugo_method_pub.publish(json.dumps(payload))
+                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goal"}))
                     rospy.loginfo("Is Goal!!!!!!!!")
 
             # ここは走行経路表示
-            if not self._current_step is 0:
-                marker_data = Marker()
-                marker_data.header.frame_id = "map"
-                marker_data.header.stamp = rospy.Time.now()
-                marker_data.ns = "basic_shapes"
-                marker_data.action = Marker.ADD
-                marker_data.type = Marker.LINE_STRIP
+            # if not self._current_step is 0:
+            #     marker_data = Marker()
+            #     marker_data.header.frame_id = "map"
+            #     marker_data.header.stamp = rospy.Time.now()
+            #     marker_data.ns = "basic_shapes"
+            #     marker_data.action = Marker.ADD
+            #     marker_data.type = Marker.LINE_STRIP
 
-                marker_data.pose.orientation.x = 0.0
-                marker_data.pose.orientation.y = 0.0
-                marker_data.pose.orientation.z = 1.0
-                marker_data.pose.orientation.w = 0.0
+            #     marker_data.pose.orientation.x = 0.0
+            #     marker_data.pose.orientation.y = 0.0
+            #     marker_data.pose.orientation.z = 1.0
+            #     marker_data.pose.orientation.w = 0.0
 
-                marker_data.color.r = 1.0
-                marker_data.color.g = 0.0
-                marker_data.color.b = 0.0
-                marker_data.color.a = 1.0
+            #     marker_data.color.r = 1.0
+            #     marker_data.color.g = 0.0
+            #     marker_data.color.b = 0.0
+            #     marker_data.color.a = 1.0
 
-                marker_data.scale.x = 0.01
+            #     marker_data.scale.x = 0.01
 
-                marker_data.points = []
-                p1 = Point()
-                p1.x = -data.pose.pose.position.x
-                p1.y = -data.pose.pose.position.y
-                p1.z = 0.0
-                marker_data.points.append(p1)
-                p2 = Point()
-                p2.x = -self._step[self._current_step]["x"]
-                p2.y = -self._step[self._current_step]["y"]
-                p2.z = 0.0
-                marker_data.points.append(p2)
+            #     marker_data.points = []
+            #     p1 = Point()
+            #     p1.x = -data.pose.pose.position.x
+            #     p1.y = -data.pose.pose.position.y
+            #     p1.z = 0.0
+            #     marker_data.points.append(p1)
+            #     p2 = Point()
+            #     p2.x = -self._step[self._current_step]["x"]
+            #     p2.y = -self._step[self._current_step]["y"]
+            #     p2.z = 0.0
+            #     marker_data.points.append(p2)
 
-                self._marker_pub.publish(marker_data)
+            #     self._marker_pub.publish(marker_data)
 
         except Exception as e:
             rospy.logwarn("command publisher request failed")
