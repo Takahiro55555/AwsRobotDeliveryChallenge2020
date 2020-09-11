@@ -54,8 +54,8 @@ class Planner():
             self.__remove_edge_recalc(payload)
             return
 
-        
         if "is_started" in payload and payload["is_started"]:
+            self.__reset_vertex()
             full_path = self.__calc_all_patterns(start_vertex_id=0)
             self.__send_path(full_path)
             return
@@ -76,7 +76,15 @@ class Planner():
         #     full_path = self.__calc_all_patterns(start_vertex_id=payload["vertex_id"])
         #     self.__send_path(full_path)
         # rospy.loginfo("After Destinations: %s" % [key for key in self.__vertex_dict if self.__vertex_dict[key].get_is_destination()])
-        
+    
+    def __reset_vertex(self):
+        for v in self.__vertex_list_param:
+            v_id = v["id"]
+            if not v["is_destination"]:
+                continue
+            self.__vertex_dict[v_id].set_is_destination_true()
+            self.__vertex_dict[v_id].set_is_via_point_true()
+
     def __send_path(self, full_path):
         position_full_path = []
         # vertex_id から 座標を取得しListに格納する
@@ -88,6 +96,7 @@ class Planner():
                 y = y,
                 tolerance = tolerance,
                 is_destination = v.get_is_destination(),
+                is_via_point = v.get_is_via_point(),
                 vertex_id=v.get_vertex_id()
             ))
 
@@ -349,7 +358,10 @@ class Vertex:
 
     def set_is_destination_false(self):
         self.__is_destination = False
-    
+
+    def set_is_destination_true(self):
+        self.__is_destination = True
+
     def set_is_via_point_true(self):
         self.__is_via_point = True
 
