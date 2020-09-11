@@ -26,13 +26,19 @@ ANGULER_MAX_SPEED = 2.84
 
 class TwugoMethod():
     def __init__(self):
+        # ROS Publisher
         self._cmd_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self._remoteconsole_update_status_pub = rospy.Publisher(
+            "/remote_console/update_status", String, queue_size=1)
+
+        # ROS Subscriber
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._twugo_method_sub = rospy.Subscriber(
             "/twugo_method", String, self.set_goal, queue_size=1)
         self._restart_method_sub = rospy.Subscriber(
             "/twugo_method/restart", String, self.restart_cb, queue_size=1)
+
         self._twist = Twist()
         self._next_synctime = time.time()
         self._is_stoped = False
@@ -56,6 +62,7 @@ class TwugoMethod():
             self._is_started = False
             return
         elif "is_interrupted" in payload and payload["is_interrupted"]:
+            self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
             self._is_started = False
             return
         elif self._is_before_destination:
