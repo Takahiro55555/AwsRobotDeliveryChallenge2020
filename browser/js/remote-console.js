@@ -33,6 +33,7 @@ let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
 let deviceIot = null;
+let currentStatus = { "status": "initializing", "msg": "初期化処理中 >>>走行不能<<<" };
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
     deviceIot = awsIot.device({
@@ -63,14 +64,25 @@ async function setupAwsIot() {
             }
             originalMapGraph = JSON.parse(payload.toString());
             backgroundLayerP5.redraw();
+        } else if (topic == subscribeTopics.currentStatus) {
+            /**** 各種ボタンの有効化・無効化処理 ****/
+            const recievedStatus = JSON.parse(payload.toString());
+            if (recievedStatus["status"] === "goal") {
+                document.getElementById("btn-retry-game").removeAttribute("disabled");
+            } else if (recievedStatus["status"] === "ready") {
+                document.getElementById("btn-start-restart").removeAttribute("disabled");
+                document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                makeStartButton();
+            } else if (recievedStatus["status"] === "running" || recievedStatus["status"] === "stop" || recievedStatus["status"] === "delivery" || recievedStatus["status"] === "manual") {
+                document.getElementById("btn-start-restart").removeAttribute("disabled");
+                document.getElementById("btn-stop").removeAttribute("disabled");
+                document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                makeRestartButton();
+            }
         } else {
             console.log("[" + topic + "] Message recieved.");
             console.log(JSON.parse(payload.toString()));
         }
-
-        /**** 各種ボタンの有効化・無効化処理 ****/
-        document.getElementById("btn-start-restart").removeAttribute("disabled");
-        document.getElementById("btn-stop").removeAttribute("disabled");
     });
 
     // Subscribe する Topic を登録する
@@ -313,14 +325,26 @@ document.getElementById("btn-start-restart").onclick = function startRestartButt
     if (!isStarted) {
         payload["buttonName"] = "btn-start";
         deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
-        this.innerHTML = "リスタート";
-        this.value = "restart";
-        this.classList.remove("btn-primary");
-        this.classList.add("btn-success");
         return;
     }
     payload["buttonName"] = "btn-restart";
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
+}
+
+function makeStartButton() {
+    const btnElm = document.getElementById("btn-start-restart");
+    const START_BTN_CLASS = "btn btn-primary btn-lg btn-block btn-line-through-on-disabled";
+    btnElm.innerHTML = "スタート";
+    btnElm.value = "start";
+    btnElm.setAttribute("class", START_BTN_CLASS);
+}
+
+function makeRestartButton() {
+    const btnElm = document.getElementById("btn-start-restart");
+    const RESTART_BTN_CLASS = "btn btn-success btn-lg btn-block btn-line-through-on-disabled";
+    btnElm.innerHTML = "リスタート";
+    btnElm.value = "restart";
+    btnElm.setAttribute("class", RESTART_BTN_CLASS);
 }
 
 document.getElementById("btn-stop").onclick = function stopButton() {
