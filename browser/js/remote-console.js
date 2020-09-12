@@ -59,11 +59,17 @@ async function setupAwsIot() {
             if (!("status" in msg)) {
                 return;
             }
+            if ("gameMode" in msg) {
+                applyGameMode(msg.gameMode);
+            }
             const recievedStatus = msg["status"];
             if (recievedStatus === STATUS_DICT.goal.status) {
                 document.getElementById("btn-retry-game").removeAttribute("disabled");
+                document.getElementById("btn-stop").removeAttribute("disabled");
+                makeRestartButton();
             } else if (recievedStatus === STATUS_DICT.ready.status) {
                 document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                document.getElementById("btn-stop").setAttribute("disabled", true);
                 makeStartButton();
                 makeToEnableModeSelect();
             } else if (recievedStatus === STATUS_DICT.running.status || recievedStatus === STATUS_DICT.stop.status || recievedStatus === STATUS_DICT.delivery.status || recievedStatus === STATUS_DICT.manual.status) {
@@ -346,7 +352,8 @@ function makeRestartButton() {
     btnElm.removeAttribute("disabled");
 }
 
-document.getElementById("btn-stop").onclick = function stopButton() {
+document.getElementById("btn-stop").onclick = stopButton;
+function stopButton() {
     if (deviceIot === null) {
         return;
     }
@@ -358,7 +365,8 @@ document.getElementById("btn-stop").onclick = function stopButton() {
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
 
-document.getElementById("btn-retry-game").onclick = function retryGameButton() {
+document.getElementById("btn-retry-game").onclick = retryGameButton;
+function retryGameButton() {
     if (deviceIot === null) {
         return;
     }
@@ -372,17 +380,23 @@ document.getElementById("btn-retry-game").onclick = function retryGameButton() {
 
 
 
-document.getElementById("btn-apply-mode").onclick = function () {
-    const selectedGameMode = document.getElementById("li-game-mode").value;
+document.getElementById("btn-apply-mode").onclick = applyGameMode;
+function applyGameMode(selectedGameMode = null) {
+    if (selectedGameMode === null || typeof(selectedGameMode) != typeof("")) {
+        selectedGameMode = document.getElementById("li-game-mode").value;
+    }
     if (selectedGameMode === GAME_MODE.main) {
         document.getElementById("txt-current-game-mode").innerText = "本戦";
+        document.getElementById("game-mode-option-main").selected = true;
     } else if (selectedGameMode === GAME_MODE.final) {
         document.getElementById("txt-current-game-mode").innerText = "決勝戦"
+        document.getElementById("game-mode-option-final").selected = true;
     } else {
         return;
     }
     gameMode = selectedGameMode;
     document.getElementById("btn-apply-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").value = gameMode;
 }
 
 document.getElementById("li-game-mode").onchange = function () {
