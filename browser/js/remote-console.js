@@ -400,8 +400,8 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
     document.getElementById("txt-console-card-title").innerText = cardTitle;
 
     // チェックボックス（フラグ）の設定
-    document.getElementById("checkbox-vertex-is-destination", vertex.is_destination);
-    document.getElementById("checkbox-vertex-is-via-point", vertex.is_via_point);
+    document.getElementById("checkbox-vertex-is-destination").checked = vertex.is_destination;
+    document.getElementById("checkbox-vertex-is-via-point").checked = vertex.is_via_point;
 
     // 座標の設定
     document.getElementById("number-vertex-coordinate-x").value = vertex.x;
