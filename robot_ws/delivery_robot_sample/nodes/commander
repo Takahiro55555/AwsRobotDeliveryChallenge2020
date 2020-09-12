@@ -35,6 +35,8 @@ class Commander():
             "/twugo_method/restart", String, queue_size=1)
         self._remoteconsole_update_status_pub = rospy.Publisher(
             "/remote_console/update_status", String, queue_size=1)
+        self._obstacle_detector_pub = rospy.Publisher(
+            "/obstacle_detector/detect_request", String, queue_size=1)
 
         # Member variable
         self._current_step = None
@@ -125,6 +127,7 @@ class Commander():
                     rospy.loginfo("HELLO!!! This is Amazon!!!!")
                 
                 self._current_step += 1
+                self._obstacle_detector_pub.publish(json.dumps({"obstacle_detect_request": True}))
                 self._is_sended = False
                 rospy.loginfo("Current step: %d" % self._current_step)
                 if len(self._step) <= self._current_step:

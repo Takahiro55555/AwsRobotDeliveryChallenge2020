@@ -14,6 +14,7 @@ import json
 
 class ObstacleDetector():
     def __init__(self):
+        # ROS Subscriber
         self.__global_costmap_sub = rospy.Subscriber(
             "/move_base/global_costmap/costmap", OccupancyGrid, self.__global_costmap_cb, queue_size=1)
         self.__rocal_costmap_sub = rospy.Subscriber(
@@ -22,8 +23,10 @@ class ObstacleDetector():
             "/odom", Odometry, self.__odm_cb, queue_size=1)
         self._twugo_method_sub = rospy.Subscriber(
             "/twugo_method", String, self.__set_next_vertex_pos, queue_size=1)
-        self.__costmap_image_pub = rospy.Publisher(
-            "/obstacle_detector/costmap_image", Image, queue_size=1)
+        self.__commander_sub =  rospy.Subscriber(
+            "/obstacle_detector/detect_request", String, self.__obstacle_detect_cb, queue_size=1)
+
+        # ROS Publisher
         self.__trimed_merged_costmap_pub = rospy.Publisher(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, queue_size=1)
         self.__obstacle_detect_pub = rospy.Publisher(
@@ -35,27 +38,10 @@ class ObstacleDetector():
         self.__trimed_merged_costmap = None
         self.__next_vertex_pos = None
         self.__pre_vertex_pos = None
+        self.__is_detect_request = False
 
     def main(self):
-        rate = rospy.Rate(15)  # 1Hz
-        while True:
-            if (not self.__initial_global_costmap is None) and (not self.__local_costmap is None) and (not self.__robot_positon is None):
-                rospy.loginfo_once("[Obstacle detector] Started image publishing")
-                # costmap = self.__costmap_difference_from_global(self.__initial_global_costmap, self.__local_costmap)
-                costmap = self.__merge_costmap_local_costmap_to_global_costmap(self.__initial_global_costmap, self.__local_costmap)
-                img = self.__merge_costmap_arrays(self.__trim_costmap(self.__initial_global_costmap), self.__trim_costmap(costmap), marker2=self.__robot_positon)
-                if img is None:
-                    continue
-                bridge = CvBridge()
-                cost_image_msg = bridge.cv2_to_imgmsg(img, encoding="bgr8")
-                self.__costmap_image_pub.publish(cost_image_msg)
-                # height, width = costmap.get_size()
-                # cv2.drawMarker(img, (int(height/2), int(width/2)), (200), markerType=cv2.MARKER_CROSS, markerSize=50, thickness=1, line_type=cv2.LINE_8)
-                # cv2.imshow('costmap', img)
-                # cv2.waitKey(10)
-                self.__obstacle_detect(costmap)
-            rate.sleep()
-
+        rospy.spin()
 
     def __costmap_difference_from_global(self, global_costmap, local_costmap):
         h, w = global_costmap.get_size()
@@ -214,7 +200,9 @@ class ObstacleDetector():
             merged_array = self.__merge_costmap_local_costmap_to_global_costmap(self.__initial_global_costmap, self.__local_costmap)
             self.__trimed_merged_costmap = self.__trim_costmap(merged_array)
             self.__trimed_merged_costmap_pub.publish(self.__trimed_merged_costmap.converte_occupancy_grid())
-
+        
+        if self.__is_detect_request:
+            self.__obstacle_detect(self.__local_costmap)
 
     def __trim_costmap(self, costmap):
         start = dict(x=None, y=None)
@@ -294,20 +282,33 @@ class ObstacleDetector():
             self.__pre_vertex_pos.x = payload["pre_x"]
             self.__pre_vertex_pos.y = payload["pre_y"]
 
+    def __obstacle_detect_cb(self, data):
+        self.__is_detect_request = True
+
     def __obstacle_detect(self, costmap):
+        if costmap is None:
+            return
         if self.__next_vertex_pos is None:
             return
         costmap_array = costmap.get_array()
         res = costmap.get_resolution()
         distance = math.sqrt((self.__pre_vertex_pos.x - self.__next_vertex_pos.x)**2 + (self.__pre_vertex_pos.y - self.__next_vertex_pos.y)**2) / res
         points = set()
-        offset = 10 # mapの座標, x:-10から10まで, y:-10から10まで
-        self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset)/res, (self.__pre_vertex_pos.y + offset)/res), ((self.__next_vertex_pos.x + offset)/res, (self.__next_vertex_pos.y + offset)/res))
+        costmap_origin = costmap.get_origin()
+        offset_x = costmap_origin.position.x * -1
+        offset_y = costmap_origin.position.y * -1
+        self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__next_vertex_pos.x + offset_x)/res, (self.__next_vertex_pos.y + offset_y)/res))
+        height, width = costmap.get_size()
         for (x, y) in points:
+            if not 0 <= x < width:
+                continue
+            if not 0 <= y < height:
+                continue
             if costmap_array[y][x] >= self.__threshold:
                 rospy.logwarn("[Obstacle detector] Detect obstacle!!")
                 self.__obstacle_detect_pub.publish("detect_obstacle")
                 break
+        self.__is_detect_request = False
 
     def __calc_center_point(self, points, distance, start, end):
         if distance <= 0:
@@ -315,6 +316,12 @@ class ObstacleDetector():
         center_x = int((end[0] + start[0]) / 2)
         center_y = int((end[1] + start[1]) / 2)
         points.add((center_x, center_y))
+
+        # 4近傍画素も追加
+        points.add((center_x + 1, center_y))
+        points.add((center_x - 1, center_y))
+        points.add((center_x, center_y + 1))
+        points.add((center_x, center_y - 1))
         self.__calc_center_point(points, distance//2, start, (center_x, center_y))
         self.__calc_center_point(points, distance//2, (center_x, center_y), end)
 
