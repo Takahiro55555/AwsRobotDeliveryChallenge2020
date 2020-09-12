@@ -94,7 +94,7 @@ class TwugoMethod():
         self._odom = data
         self._next_synctime = time.time() + 0.3
 
-        # リトライのために正面を向かせる
+        # リトライのために正面を向かせる処理
         if self._is_retry_rotating:
             self.rotate_robot(1.0, 0.0)
             return
@@ -146,7 +146,7 @@ class TwugoMethod():
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
                               math.cos(atan2_tmp - r_ang))
         turn_speed = ang_diff * self._turn_p
-        if abs(ang_diff) < math.pi/12:
+        if abs(ang_diff) < math.pi/15:
             self._is_retry_rotating = False
         self._twist.linear.x = 0
         self._twist.angular.z = self.sign(
