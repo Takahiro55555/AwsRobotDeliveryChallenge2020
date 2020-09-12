@@ -318,14 +318,10 @@ class ObstacleDetector():
         points.add((center_x, center_y))
 
         # 4近傍画素も追加
-        if (start[0] < center_x + 1 < end[0]) or (end[0] < center_x + 1 < start[0]):
-            points.add((center_x + 1, center_y))
-        if (start[0] < center_x - 1 < end[0]) or (end[0] < center_x - 1 < start[0]):
-            points.add((center_x - 1, center_y))
-        if ((start[1] < center_y + 1 <end[1]) or (end[1] < center_y + 1 < start[1])):
-            points.add((center_x, center_y + 1))
-        if ((start[1] < center_y - 1 <end[1]) or (end[1] < center_y - 1 < start[1])):
-            points.add((center_x, center_y - 1))
+        points.add((center_x + 1, center_y))
+        points.add((center_x - 1, center_y))
+        points.add((center_x, center_y + 1))
+        points.add((center_x, center_y - 1))
         self.__calc_center_point(points, distance//2, start, (center_x, center_y))
         self.__calc_center_point(points, distance//2, (center_x, center_y), end)
 
