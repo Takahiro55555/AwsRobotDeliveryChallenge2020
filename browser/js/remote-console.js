@@ -1,17 +1,5 @@
 const awsIot = require('aws-iot-device-sdk');
 
-// NOTE: この辞書のkeyは、ROS側のノード「remote_console」の「RemoteConsole::__data_publish_funcs」のkeyと一致させること
-const subscribeTopics = {};
-subscribeTopics.costmap = iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed";
-subscribeTopics.odom = iotclientId + "/ros_to_remote_console/odom";
-subscribeTopics.mapGraph = iotclientId + "/ros_to_remote_console/planner/map_graph";
-subscribeTopics.path = iotclientId + "/ros_to_remote_console/planner/path";
-subscribeTopics.currentStatus = iotclientId + "/ros_to_remote_console/remote_console/current_status";
-
-const publishTopics = {};
-publishTopics.buttons = iotclientId + "/remote_console_to_ros/buttons"
-publishTopics.requestData = iotclientId + "/remote_console_to_ros/request_data"
-
 async function getCognitoCredentials() {
     AWS.config.region = region;
     var cognitoidentity = new AWS.CognitoIdentity();
@@ -33,7 +21,8 @@ let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
 let deviceIot = null;
-let currentStatus = { "status": "initializing", "msg": "初期化処理中 >>>走行不能<<<" };
+let currentStatus = STATUS.initializing;
+let gameMode = GAME_MODE.main;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
     deviceIot = awsIot.device({
@@ -70,14 +59,14 @@ async function setupAwsIot() {
             if (recievedStatus["status"] === "goal") {
                 document.getElementById("btn-retry-game").removeAttribute("disabled");
             } else if (recievedStatus["status"] === "ready") {
-                document.getElementById("btn-start-restart").removeAttribute("disabled");
                 document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 makeStartButton();
+                makeToEnableModeSelect();
             } else if (recievedStatus["status"] === "running" || recievedStatus["status"] === "stop" || recievedStatus["status"] === "delivery" || recievedStatus["status"] === "manual") {
-                document.getElementById("btn-start-restart").removeAttribute("disabled");
                 document.getElementById("btn-stop").removeAttribute("disabled");
                 document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 makeRestartButton();
+                makeToDisableModeSelect();
             }
         } else {
             console.log("[" + topic + "] Message recieved.");
@@ -324,7 +313,9 @@ document.getElementById("btn-start-restart").onclick = function startRestartButt
 
     if (!isStarted) {
         payload["buttonName"] = "btn-start";
+        payload["gameMode"] = gameMode;
         deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
+        makeToDisableModeSelect();
         return;
     }
     payload["buttonName"] = "btn-restart";
@@ -337,6 +328,7 @@ function makeStartButton() {
     btnElm.innerHTML = "スタート";
     btnElm.value = "start";
     btnElm.setAttribute("class", START_BTN_CLASS);
+    btnElm.removeAttribute("disabled");
 }
 
 function makeRestartButton() {
@@ -345,6 +337,7 @@ function makeRestartButton() {
     btnElm.innerHTML = "リスタート";
     btnElm.value = "restart";
     btnElm.setAttribute("class", RESTART_BTN_CLASS);
+    btnElm.removeAttribute("disabled");
 }
 
 document.getElementById("btn-stop").onclick = function stopButton() {
@@ -354,7 +347,7 @@ document.getElementById("btn-stop").onclick = function stopButton() {
     let payload = {};
     requestId = (new Date()).getTime();
     payload["buttonName"] = "btn-stop";
-    payload["requestId"] = requestId
+    payload["requestId"] = requestId;
     payload["isClicked"] = true;
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
@@ -366,10 +359,45 @@ document.getElementById("btn-retry-game").onclick = function retryGameButton() {
     let payload = {};
     requestId = (new Date()).getTime();
     payload["buttonName"] = "btn-retry-game";
-    payload["requestId"] = requestId
+    payload["requestId"] = requestId;
     payload["isClicked"] = true;
-
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
+}
+
+
+
+document.getElementById("btn-apply-mode").onclick = function () {
+    const selectedGameMode = document.getElementById("li-game-mode").value;
+    if (selectedGameMode === GAME_MODE.main) {
+        document.getElementById("txt-current-game-mode").innerText = "本戦";
+    } else if (selectedGameMode === GAME_MODE.final) {
+        document.getElementById("txt-current-game-mode").innerText = "決勝戦"
+    } else {
+        return;
+    }
+    gameMode = selectedGameMode;
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
+}
+
+document.getElementById("li-game-mode").onchange = function () {
+    const selectedGameMode = document.getElementById("li-game-mode").value;
+    if (selectedGameMode != gameMode) {
+        document.getElementById("btn-apply-mode").removeAttribute("disabled");
+    }
+}
+
+function makeToDisableModeSelect() {
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").value = gameMode;
+}
+
+function makeToEnableModeSelect() {
+    document.getElementById("li-game-mode").removeAttribute("disabled");
+    document.getElementById("li-game-mode").value = gameMode;
+
+    // 選択リストの値を変更しない限り、適用ボタンは無効化したままにしておく
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
 }
 
 function toggleCard(obj, id) {
