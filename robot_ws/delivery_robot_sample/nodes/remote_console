@@ -46,7 +46,12 @@ class RemoteConsole():
             "error": {"status": "error" , "msg": "エラー発生 >>>走行不能<<<"},
             "terminating": {"status": "terminating" , "msg": "終了中 >>>走行不能<<<"}
         }
+        self.__game_mode_list = {
+            "main": "GAME_MODE_IS_MAIN",  # 本戦モード
+            "final": "GAME_MODE_IS_FINAL"  # 決勝戦モード
+        }
         self.__current_status = self.__status_list["initializing"]  # 現在のロボットの状態を保持する
+        self.__current_game_mode = self.__game_mode_list["main"]  # 現在のゲームモードを保持する
 
         # AWS IoT へ各種データを Publish する関数
         #   NOTE: 辞書にまとめておくと、すべてのデータを Publish したいときに便利
@@ -81,7 +86,15 @@ class RemoteConsole():
         data['topic'] = message.topic
         payload = data['payload']
 
-        if "buttonName" not in data['payload']:
+        if "gameMode" in payload:
+            game_mode = payload["gameMode"]
+            if game_mode in self.__game_mode_list.values():
+                self.__current_game_mode = game_mode
+                rospy.loginfo("[RemoteConsole::__button_cb] gameMode: %s" % game_mode)
+            else:
+                rospy.logwarn("[RemoteConsole::__button_cb] gameMode: %s は定義されていません" % game_mode)
+
+        if "buttonName" not in payload:
             rospy.logwarn("[RemoteConsole::__button_cb] メッセージに 'buttonName' がありません。")
             return
 
@@ -89,6 +102,7 @@ class RemoteConsole():
             pub_data = json.dumps({"action": "start"})
             self.__to_commander_pub.publish(pub_data)
             rospy.loginfo("[RemoteConsole::__button_cb] btn-start published: %s" % pub_data)
+            #TODO: Game mode を反映する処理を書く
         
         if payload["buttonName"] == "btn-restart" and payload["isClicked"]:
             pub_data = json.dumps({"action": "restart"})
