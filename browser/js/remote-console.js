@@ -21,7 +21,7 @@ let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
 let deviceIot = null;
-let currentStatus = STATUS.initializing;
+let currentStatus = STATUS_DICT.initializing;
 let gameMode = GAME_MODE.main;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
@@ -40,37 +40,43 @@ async function setupAwsIot() {
 
     // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
+        const msg = JSON.parse(payload.toString());
         if (topic == subscribeTopics.costmap) {
-            costmap = JSON.parse(payload.toString());
+            costmap = msg;
             backgroundLayerP5.redraw();
             frontLayerP5.redraw();
         } else if (topic == subscribeTopics.odom) {
-            odom = JSON.parse(payload.toString());
+            odom = msg;
             frontLayerP5.redraw();
         } else if (topic == subscribeTopics.mapGraph) {
             if (JSON.stringify(originalMapGraph) === JSON.stringify(editMapGraph)) {
-                editMapGraph = JSON.parse(payload.toString());
+                editMapGraph = msg;
             }
-            originalMapGraph = JSON.parse(payload.toString());
+            originalMapGraph = msg;
             backgroundLayerP5.redraw();
         } else if (topic == subscribeTopics.currentStatus) {
             /**** 各種ボタンの有効化・無効化処理 ****/
-            const recievedStatus = JSON.parse(payload.toString());
-            if (recievedStatus["status"] === "goal") {
+            if (!("status" in msg)) {
+                return;
+            }
+            const recievedStatus = msg["status"];
+            if (recievedStatus === STATUS_DICT.goal.status) {
                 document.getElementById("btn-retry-game").removeAttribute("disabled");
-            } else if (recievedStatus["status"] === "ready") {
+            } else if (recievedStatus === STATUS_DICT.ready.status) {
                 document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 makeStartButton();
                 makeToEnableModeSelect();
-            } else if (recievedStatus["status"] === "running" || recievedStatus["status"] === "stop" || recievedStatus["status"] === "delivery" || recievedStatus["status"] === "manual") {
+            } else if (recievedStatus === STATUS_DICT.running.status || recievedStatus === STATUS_DICT.stop.status || recievedStatus === STATUS_DICT.delivery.status || recievedStatus === STATUS_DICT.manual.status) {
                 document.getElementById("btn-stop").removeAttribute("disabled");
-                document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 makeRestartButton();
                 makeToDisableModeSelect();
+                if (document.getElementById("btn-start-restart").value == "start") {
+                    document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                }
             }
+            currentStatus = STATUS_DICT[recievedStatus];
         } else {
             console.log("[" + topic + "] Message recieved.");
-            console.log(JSON.parse(payload.toString()));
         }
     });
 
