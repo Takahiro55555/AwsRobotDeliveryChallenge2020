@@ -110,7 +110,7 @@ class RemoteConsole():
             rospy.loginfo("[RemoteConsole::__button_cb] btn-restart published: %s" % pub_data)
 
         if payload["buttonName"] == "btn-stop" and payload["isClicked"]:
-            pub_data = json.dumps({"is_interrupted": True})
+            pub_data = json.dumps({"is_interrupted": True, "mode": "stop"})
             self.__twugo_method_pub.publish(pub_data)
             rospy.loginfo("[RemoteConsole::__button_cb] btn-stop published: %s" % pub_data)
 
@@ -204,6 +204,9 @@ class RemoteConsole():
         if status not in self.__status_list:
             rospy.logerr("RemoteConsole::__robot_status_cb '%s' は定義されていない「状態」です" % status)
             return
+        if self.__current_status["status"] == "goal" and (status == "manual" or status == "stop" or status == "running"):
+            # status がゴールのまま、手動操作や停止処理が実行されても、status の変更は行わない
+            return
         self.__current_status = self.__status_list[status]
         self.__publish_current_status_to_aws_iot()
 
@@ -245,8 +248,10 @@ class RemoteConsole():
         if self.__current_status is None:
             rospy.logwarn("[RemoteConsole::__publish_current_status_to_aws_iot] __current_status is None, so can not publish data.")
             return
+        self.__current_status["gameMode"] = self.__current_game_mode
         pub_topic = "%s/%s/remote_console/current_status" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
         self.__mqtt_client.mqtt_publish(self.__current_status, pub_topic)
+        rospy.loginfo("[RemoteConsole::__publish_current_status_to_aws_iot] Current status: %s" % self.__current_status)
 
     def __publish_odom_to_aws_iot(self):
         if self.__odom_pub_data is None:
