@@ -33,8 +33,6 @@ class Commander():
             "/commander/meta_info", String, queue_size=1)
         self._twugo_method_restart_pub = rospy.Publisher(
             "/twugo_method/restart", String, queue_size=1)
-        self._marker_pub = rospy.Publisher(
-            "/way_line", Marker, queue_size=10)
         self._remoteconsole_update_status_pub = rospy.Publisher(
             "/remote_console/update_status", String, queue_size=1)
 
