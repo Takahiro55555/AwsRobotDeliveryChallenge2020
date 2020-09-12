@@ -4,7 +4,7 @@ const GAME_MODE = {
 };
 
 // ロボットがとりうる状態
-const STATUS = {
+const STATUS_DICT = {
     "initializing": { "status": "initializing", "msg": "初期化処理中 >>>走行不能<<<" },
     "ready": { "status": "ready", "msg": "走行可能（スタート可能）" },
     "running": { "status": "running", "msg": "走行中（停止・手動操作可能）" },
