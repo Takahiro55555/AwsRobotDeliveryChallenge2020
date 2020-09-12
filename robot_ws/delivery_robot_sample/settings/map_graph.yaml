@@ -126,17 +126,17 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 12
-      - 14
       - 17
+      - 19
       
   - id: 14
-    x: -0.1000
-    y: 1.5910
-    tolerance: 0.2
+    x: -0.1300
+    y: 1.2000
+    tolerance: 0.08
     is_destination: false
     linked_vertex_list:
-      - 13
       - 15
+      - 19
       
   - id: 15
     x: 0.0932
@@ -175,3 +175,12 @@ vertex_list:
     linked_vertex_list:
       - 7
       - 16
+
+  - id: 19
+    x: -0.1300
+    y: 1.6000
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 14
+      - 13
