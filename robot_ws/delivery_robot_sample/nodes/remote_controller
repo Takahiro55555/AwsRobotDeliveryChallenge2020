@@ -95,7 +95,7 @@ class RemoteController():
             message_json = json.loads(message.data)
             payload = message_json['payload']
             if 'command' in payload and payload['command'] == "move":
-                self._twugo_method_pub.publish(json.dumps({"is_interrupted": True}))
+                self._twugo_method_pub.publish(json.dumps({"is_interrupted": True, "mode": "manual"}))
                 rospy.loginfo("remote_controller Move {}".format(payload['action']))
                 self.action = payload['action']
                 self.sync_action()
