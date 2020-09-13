@@ -15,7 +15,7 @@ vertex_list:
     linked_vertex_list:
       - 0
       - 20
-      - 15
+      - 22
 
   - id: 2
     x: 2.3392
@@ -33,8 +33,8 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 2
-      - 4
-      - 7
+      - 21
+      - 23
       
   - id: 4
     x: 4.4300
@@ -42,8 +42,8 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 3
-      - 5
+      - 21
+      - 24
       
   - id: 5
     x: 4.4891
@@ -51,9 +51,9 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 4
       - 6
-      - 7
+      - 24
+      - 28
       
   - id: 6
     x: 5.0000
@@ -69,10 +69,10 @@ vertex_list:
     tolerance: 0.06
     is_destination: false
     linked_vertex_list:
-      - 3
-      - 5
       - 8
-      - 18
+      - 23
+      - 27
+      - 28
   
   - id: 8
     x: 3.1660
@@ -90,7 +90,7 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 8
-      - 10
+      - 31
       
   - id: 10
     x: 1.9200
@@ -98,8 +98,8 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 9
       - 11
+      - 31
       
   - id: 11
     x: 1.3677
@@ -126,8 +126,8 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 12
-      - 17
-      - 19
+      - 29
+      - 30
       
   - id: 14
     x: -0.1300
@@ -144,9 +144,9 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 1
       - 14
-      - 16
+      - 22
+      - 25
       
   - id: 16
     x: 0.9781
@@ -154,9 +154,9 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 15
       - 17
-      - 18
+      - 25
+      - 26
       
   - id: 17
     x: 0.8400
@@ -164,17 +164,17 @@ vertex_list:
     tolerance: 0.1
     is_destination: false
     linked_vertex_list:
-      - 13
       - 16
+      - 30
       
   - id: 18
     x: 2.0236
-    y: 1.3482
+    y: 1.3000
     tolerance: 0.15
     is_destination: false
     linked_vertex_list:
-      - 7
-      - 16
+      - 26
+      - 27
 
   - id: 19
     x: -0.1300
@@ -183,14 +183,112 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 14
-      - 13
+      - 29
 
   - id: 20
     x: 1.5810
     y: 0.1252
-    tolerance: 0.15
+    tolerance: 0.08
     is_destination: false
     linked_vertex_list:
       - 1
       - 2
+
+  - id: 21
+    x: 3.7855
+    y: 0.3657
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 3
+      - 4
       
+  - id: 22
+    x: 0.4580
+    y: 0.4901
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 1
+      - 15
+
+  - id: 23
+    x: 3.1216
+    y: 0.7933
+    tolerance: 0.06
+    is_destination: false
+    linked_vertex_list:
+      - 3
+      - 7
+
+  - id: 24
+    x: 4.4596
+    y: 0.8724
+    tolerance: 0.06
+    is_destination: false
+    linked_vertex_list:
+      - 4
+      - 5
+
+  - id: 25
+    x: 0.5357
+    y: 0.9756
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 15
+      - 16
+
+  - id: 26
+    x: 1.5009
+    y: 1.2080
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 16
+      - 18
+
+  - id: 27
+    x: 2.5628
+    y: 1.3000
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 7
+      - 18
+
+  - id: 28
+    x: 3.7955
+    y: 1.3000
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 5
+      - 7
+
+  - id: 29
+    x: 0.3963
+    y: 1.9373
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 13
+      - 19
+
+  - id: 30
+    x: 0.8813
+    y: 1.8194
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 13
+      - 17
+
+  - id: 31
+    x: 2.5117
+    y: 2.0843
+    tolerance: 0.08
+    is_destination: false
+    linked_vertex_list:
+      - 9
+      - 10
