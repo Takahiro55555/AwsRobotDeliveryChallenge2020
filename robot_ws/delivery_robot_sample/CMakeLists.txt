@@ -76,6 +76,7 @@ catkin_install_python(PROGRAMS
   nodes/goto_method
   nodes/planner
   nodes/awsiot_client.py
+  nodes/costmap.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
