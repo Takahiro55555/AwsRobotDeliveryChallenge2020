@@ -10,7 +10,7 @@ vertex_list:
   - id: 1
     x: 0.8229
     y: 0.0967
-    tolerance: 0.2
+    tolerance: 0.15
     is_destination: false
     linked_vertex_list:
       - 0
@@ -66,7 +66,7 @@ vertex_list:
   - id: 7
     x: 3.1020
     y: 1.3000
-    tolerance: 0.1
+    tolerance: 0.06
     is_destination: false
     linked_vertex_list:
       - 3
@@ -95,7 +95,7 @@ vertex_list:
   - id: 10
     x: 1.9200
     y: 2.0740
-    tolerance: 0.2
+    tolerance: 0.1
     is_destination: false
     linked_vertex_list:
       - 9
@@ -104,7 +104,7 @@ vertex_list:
   - id: 11
     x: 1.3677
     y: 2.5000
-    tolerance: 0.2
+    tolerance: 0.08
     is_destination: false
     linked_vertex_list:
       - 10
@@ -122,7 +122,7 @@ vertex_list:
   - id: 13
     x: 0.9226
     y: 2.2745
-    tolerance: 0.2
+    tolerance: 0.1
     is_destination: false
     linked_vertex_list:
       - 12
@@ -161,7 +161,7 @@ vertex_list:
   - id: 17
     x: 0.8400
     y: 1.3642
-    tolerance: 0.2
+    tolerance: 0.1
     is_destination: false
     linked_vertex_list:
       - 13
@@ -170,7 +170,7 @@ vertex_list:
   - id: 18
     x: 2.0236
     y: 1.3482
-    tolerance: 0.2
+    tolerance: 0.15
     is_destination: false
     linked_vertex_list:
       - 7
@@ -188,7 +188,7 @@ vertex_list:
   - id: 20
     x: 1.5810
     y: 0.1252
-    tolerance: 0.1
+    tolerance: 0.15
     is_destination: false
     linked_vertex_list:
       - 1
