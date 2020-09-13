@@ -472,7 +472,10 @@ function onInputGoto() {
     const y = document.getElementById("number-goto-coordinate-y").value;
     const tolerance = document.getElementById("number-goto-tolerance").value;
     if (isNaN(x) || isNaN(y) || isNaN(tolerance) || x === "" || y === "" || tolerance === "") {
-        isDrawGotoPoint = false;
+        if (isDrawGotoPoint) {
+            isDrawGotoPoint = false;
+            middleLayerP5.redraw();
+        }
         document.getElementById("btn-goto").setAttribute("disabled", true);
         return
     }
