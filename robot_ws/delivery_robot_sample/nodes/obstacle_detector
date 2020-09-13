@@ -26,9 +26,11 @@ class ObstacleDetector():
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.__odm_cb, queue_size=1)
         self._twugo_method_sub = rospy.Subscriber(
-            "/twugo_method", String, self.__set_next_vertex_pos, queue_size=1)
+            "/twugo_method", String, self.__set_next_vertex_pos_cb, queue_size=1)
         self.__commander_sub =  rospy.Subscriber(
             "/obstacle_detector/detect_request", String, self.__obstacle_detect_cb, queue_size=1)
+        self.__map_graph_sub =  rospy.Subscriber(
+            "/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
 
         # ROS Publisher
         self.__trimed_global_costmap_pub = rospy.Publisher(
@@ -45,8 +47,13 @@ class ObstacleDetector():
         self.__threshold = 90
         self.__robot_positon = None
         self.__trimed_merged_costmap = None
+
+        # 障害物検知(obstacle_detector)で使う変数
+        self.__all_linked_vertex_detection = False      # このフラグで隣接vertexをすべて障害物検知するか選べる
         self.__next_vertex_pos = None
+        self.__map_graph = None
         self.__pre_vertex_pos = None
+        self.__pre_vertex_id = None
         self.__is_detect_request = False
 
     def main(self):
@@ -125,6 +132,9 @@ class ObstacleDetector():
         self.__robot_positon.x = data.pose.pose.position.x
         self.__robot_positon.y = data.pose.pose.position.y
         self.__robot_positon.z = data.pose.pose.position.z
+
+    def __map_graph_cb(self, data):
+        self.__map_graph = json.loads(data.data)
 
     def __merge_costmap_arrays(self, costmap0, costmap1, costmap2=None, func0=lambda x: x, func1=lambda x: x, func2=lambda x: x,
                                  marker0=None, marker1=None, marker2=None, marker_size=10):
@@ -282,7 +292,7 @@ class ObstacleDetector():
         # return trimed_costmap_array
         return Costmap(trimed_costmap_array, trim_h, trim_w, costmap.get_resolution(), trimed_origin)
 
-    def __set_next_vertex_pos(self, data):
+    def __set_next_vertex_pos_cb(self, data):
         payload = json.loads(data.data)
         if "is_goal" in payload and payload["is_goal"]:
             return
@@ -294,33 +304,65 @@ class ObstacleDetector():
             self.__pre_vertex_pos = Point()
             self.__pre_vertex_pos.x = payload["pre_x"]
             self.__pre_vertex_pos.y = payload["pre_y"]
+            self.__pre_vertex_id = payload["pre_id"]
 
     def __obstacle_detect_cb(self, data):
         self.__is_detect_request = True
 
     def __obstacle_detect(self, costmap):
-        if costmap is None:
-            return
-        if self.__next_vertex_pos is None:
-            return
-        costmap_array = costmap.get_array()
-        res = costmap.get_resolution()
-        distance = math.sqrt((self.__pre_vertex_pos.x - self.__next_vertex_pos.x)**2 + (self.__pre_vertex_pos.y - self.__next_vertex_pos.y)**2) / res
-        points = set()
-        costmap_origin = costmap.get_origin()
-        offset_x = costmap_origin.position.x * -1
-        offset_y = costmap_origin.position.y * -1
-        self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__next_vertex_pos.x + offset_x)/res, (self.__next_vertex_pos.y + offset_y)/res))
-        height, width = costmap.get_size()
-        for (x, y) in points:
-            if not 0 <= x < width:
-                continue
-            if not 0 <= y < height:
-                continue
-            if costmap_array[y][x] >= self.__threshold:
-                rospy.logwarn("[Obstacle detector] Detect obstacle!!")
-                self.__obstacle_detect_pub.publish("detect_obstacle")
-                break
+        if self.__all_linked_vertex_detection:
+            if costmap is None:
+                return
+            linked_vertex_id_list = self.__map_graph[str(self.__pre_vertex_id)]["linked_vertex_list"]
+            rospy.loginfo(linked_vertex_id_list)
+            if len(linked_vertex_id_list) == 0:
+                return
+            costmap_array = costmap.get_array()
+            res = costmap.get_resolution()
+            costmap_origin = costmap.get_origin()
+            offset_x = costmap_origin.position.x * -1
+            offset_y = costmap_origin.position.y * -1
+
+            for vertex_id in linked_vertex_id_list:
+                distance = math.sqrt((self.__pre_vertex_pos.x - self.__map_graph[str(vertex_id)]["x"])**2 + (self.__pre_vertex_pos.y - self.__map_graph[str(vertex_id)]["y"])**2) / res
+                points = set()
+                self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__map_graph[str(vertex_id)]["x"] + offset_x)/res, (self.__map_graph[str(vertex_id)]["y"] + offset_y)/res))
+                height, width = costmap.get_size()
+                for (x, y) in points:
+                    if not 0 <= x < width:
+                        continue
+                    if not 0 <= y < height:
+                        continue
+                    if costmap_array[y][x] >= self.__threshold:
+                        rospy.logwarn("[Obstacle detector] Detect obstacle!!")
+                        payload = {}
+                        payload["vertex_id"] = vertex_id
+                        self.__obstacle_detect_pub.publish(json.dumps(payload))
+                        break
+        else:
+            if costmap is None:
+                return
+            if self.__next_vertex_pos is None:
+                return
+            costmap_array = costmap.get_array()
+            res = costmap.get_resolution()
+            distance = math.sqrt((self.__pre_vertex_pos.x - self.__next_vertex_pos.x)**2 + (self.__pre_vertex_pos.y - self.__next_vertex_pos.y)**2) / res
+            points = set()
+            costmap_origin = costmap.get_origin()
+            offset_x = costmap_origin.position.x * -1
+            offset_y = costmap_origin.position.y * -1
+            self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__next_vertex_pos.x + offset_x)/res, (self.__next_vertex_pos.y + offset_y)/res))
+            height, width = costmap.get_size()
+            for (x, y) in points:
+                if not 0 <= x < width:
+                    continue
+                if not 0 <= y < height:
+                    continue
+                if costmap_array[y][x] >= self.__threshold:
+                    rospy.logwarn("[Obstacle detector] Detect obstacle!!")
+                    self.__obstacle_detect_pub.publish(json.dumps({"data": "detect_obstacle"}))
+                    break
+            
         self.__is_detect_request = False
 
     def __calc_center_point(self, points, distance, start, end):
