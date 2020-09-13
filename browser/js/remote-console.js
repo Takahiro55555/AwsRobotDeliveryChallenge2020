@@ -1,17 +1,5 @@
 const awsIot = require('aws-iot-device-sdk');
 
-// NOTE: この辞書のkeyは、ROS側のノード「remote_console」の「RemoteConsole::__data_publish_funcs」のkeyと一致させること
-const subscribeTopics = {};
-subscribeTopics.costmap = iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed";
-subscribeTopics.odom = iotclientId + "/ros_to_remote_console/odom";
-subscribeTopics.mapGraph = iotclientId + "/ros_to_remote_console/planner/map_graph";
-subscribeTopics.path = iotclientId + "/ros_to_remote_console/planner/path";
-subscribeTopics.currentStatus = iotclientId + "/ros_to_remote_console/remote_console/current_status";
-
-const publishTopics = {};
-publishTopics.buttons = iotclientId + "/remote_console_to_ros/buttons"
-publishTopics.requestData = iotclientId + "/remote_console_to_ros/request_data"
-
 async function getCognitoCredentials() {
     AWS.config.region = region;
     var cognitoidentity = new AWS.CognitoIdentity();
@@ -28,12 +16,15 @@ async function getCognitoCredentials() {
     return credentials;
 }
 
-let costmap = null;
+let mergedCostmap = null;
+let globalCostmap = null;
+let localCostmap = null;
 let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
 let deviceIot = null;
-let currentStatus = { "status": "initializing", "msg": "初期化処理中 >>>走行不能<<<" };
+let currentStatus = STATUS_DICT.initializing;
+let gameMode = GAME_MODE.main;
 async function setupAwsIot() {
     const credentials = await getCognitoCredentials();
     deviceIot = awsIot.device({
@@ -51,37 +42,53 @@ async function setupAwsIot() {
 
     // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
-        if (topic == subscribeTopics.costmap) {
-            costmap = JSON.parse(payload.toString());
+        const msg = JSON.parse(payload.toString());
+        if (topic == subscribeTopics.mergedCostmap) {
+            mergedCostmap = msg;
             backgroundLayerP5.redraw();
             frontLayerP5.redraw();
+        } else if (topic == subscribeTopics.globalCostmap) {
+            globalCostmap = msg;
+        } else if (topic == subscribeTopics.localCostmap) {
+            localCostmap = msg;
         } else if (topic == subscribeTopics.odom) {
-            odom = JSON.parse(payload.toString());
+            odom = msg;
             frontLayerP5.redraw();
         } else if (topic == subscribeTopics.mapGraph) {
             if (JSON.stringify(originalMapGraph) === JSON.stringify(editMapGraph)) {
-                editMapGraph = JSON.parse(payload.toString());
+                editMapGraph = msg;
             }
-            originalMapGraph = JSON.parse(payload.toString());
+            originalMapGraph = msg;
             backgroundLayerP5.redraw();
         } else if (topic == subscribeTopics.currentStatus) {
             /**** 各種ボタンの有効化・無効化処理 ****/
-            const recievedStatus = JSON.parse(payload.toString());
-            if (recievedStatus["status"] === "goal") {
-                document.getElementById("btn-retry-game").removeAttribute("disabled");
-            } else if (recievedStatus["status"] === "ready") {
-                document.getElementById("btn-start-restart").removeAttribute("disabled");
-                document.getElementById("btn-retry-game").setAttribute("disabled", true);
-                makeStartButton();
-            } else if (recievedStatus["status"] === "running" || recievedStatus["status"] === "stop" || recievedStatus["status"] === "delivery" || recievedStatus["status"] === "manual") {
-                document.getElementById("btn-start-restart").removeAttribute("disabled");
-                document.getElementById("btn-stop").removeAttribute("disabled");
-                document.getElementById("btn-retry-game").setAttribute("disabled", true);
-                makeRestartButton();
+            if (!("status" in msg)) {
+                return;
             }
+            if ("gameMode" in msg) {
+                applyGameMode(msg.gameMode);
+            }
+            const recievedStatus = msg["status"];
+            if (recievedStatus === STATUS_DICT.goal.status) {
+                document.getElementById("btn-retry-game").removeAttribute("disabled");
+                document.getElementById("btn-stop").removeAttribute("disabled");
+                makeRestartButton();
+            } else if (recievedStatus === STATUS_DICT.ready.status) {
+                document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                document.getElementById("btn-stop").setAttribute("disabled", true);
+                makeStartButton();
+                makeToEnableModeSelect();
+            } else if (recievedStatus === STATUS_DICT.running.status || recievedStatus === STATUS_DICT.stop.status || recievedStatus === STATUS_DICT.delivery.status || recievedStatus === STATUS_DICT.manual.status) {
+                document.getElementById("btn-stop").removeAttribute("disabled");
+                makeRestartButton();
+                makeToDisableModeSelect();
+                if (document.getElementById("btn-start-restart").value == "start") {
+                    document.getElementById("btn-retry-game").setAttribute("disabled", true);
+                }
+            }
+            currentStatus = STATUS_DICT[recievedStatus];
         } else {
             console.log("[" + topic + "] Message recieved.");
-            console.log(JSON.parse(payload.toString()));
         }
     });
 
@@ -126,8 +133,8 @@ const background_layer_sketch = function (p) {
         drawCostMap(p);
 
         // TODO: 経路情報(MapGraph)の描画レイヤーを新たに追加した middle-layer に移植する
-        if (costmap != null && originalMapGraph != null) {
-            drawMapGraph(p, originalMapGraph, costmap, cellSize);
+        if (mergedCostmap != null && originalMapGraph != null) {
+            drawMapGraph(p, originalMapGraph, mergedCostmap, cellSize);
         }
     };
 };
@@ -153,8 +160,8 @@ const front_layer_sketch = function (p) {
         p.clear();
 
         /*** 以下、描画処理 ***/
-        if (odom != null && costmap != null) {
-            drawTurtleBot3(p, odom, costmap, cellSize, consoleWidth, consoleHeight);
+        if (odom != null && mergedCostmap != null) {
+            drawTurtleBot3(p, odom, mergedCostmap, cellSize, consoleWidth, consoleHeight);
         }
         if (activeVertexId != null) {
             p.push();
@@ -201,20 +208,20 @@ const front_layer_sketch = function (p) {
 
 let cellSize = null;
 function drawCostMap(p) {
-    if (costmap === null) {
+    if (mergedCostmap === null) {
         return;
     }
     p.noStroke();
     const colorFrom = p.color(255);
     const colorTo = p.color(0);
 
-    let w = consoleWidth / costmap.info.width;
-    let h = consoleHeight / costmap.info.height;
+    let w = consoleWidth / mergedCostmap.info.width;
+    let h = consoleHeight / mergedCostmap.info.height;
     cellSize = w < h ? w : h;
 
-    for (let row = 0; row < costmap.info.height; row++) {
-        for (let col = 0; col < costmap.info.width; col++) {
-            p.fill(p.lerpColor(colorFrom, colorTo, costmap.data[row][col] / 100));
+    for (let row = 0; row < mergedCostmap.info.height; row++) {
+        for (let col = 0; col < mergedCostmap.info.width; col++) {
+            p.fill(p.lerpColor(colorFrom, colorTo, mergedCostmap.data[row][col] / 100));
             p.rect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     }
@@ -270,6 +277,11 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
         p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE - 1));
         p.textAlign(p.CENTER, p.CENTER);
         p.text(key, x0, y0);
+
+        p.strokeWeight(2);
+        p.stroke("#ff00ff");
+        p.noFill();
+        p.circle(x0, y0, cellSize / resolution * mapGraph[key].tolerance * 2);
     }
 }
 
@@ -324,7 +336,9 @@ document.getElementById("btn-start-restart").onclick = function startRestartButt
 
     if (!isStarted) {
         payload["buttonName"] = "btn-start";
+        payload["gameMode"] = gameMode;
         deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
+        makeToDisableModeSelect();
         return;
     }
     payload["buttonName"] = "btn-restart";
@@ -337,6 +351,7 @@ function makeStartButton() {
     btnElm.innerHTML = "スタート";
     btnElm.value = "start";
     btnElm.setAttribute("class", START_BTN_CLASS);
+    btnElm.removeAttribute("disabled");
 }
 
 function makeRestartButton() {
@@ -345,31 +360,75 @@ function makeRestartButton() {
     btnElm.innerHTML = "リスタート";
     btnElm.value = "restart";
     btnElm.setAttribute("class", RESTART_BTN_CLASS);
+    btnElm.removeAttribute("disabled");
 }
 
-document.getElementById("btn-stop").onclick = function stopButton() {
+document.getElementById("btn-stop").onclick = stopButton;
+function stopButton() {
     if (deviceIot === null) {
         return;
     }
     let payload = {};
     requestId = (new Date()).getTime();
     payload["buttonName"] = "btn-stop";
-    payload["requestId"] = requestId
+    payload["requestId"] = requestId;
     payload["isClicked"] = true;
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
 
-document.getElementById("btn-retry-game").onclick = function retryGameButton() {
+document.getElementById("btn-retry-game").onclick = retryGameButton;
+function retryGameButton() {
     if (deviceIot === null) {
         return;
     }
     let payload = {};
     requestId = (new Date()).getTime();
     payload["buttonName"] = "btn-retry-game";
-    payload["requestId"] = requestId
+    payload["requestId"] = requestId;
     payload["isClicked"] = true;
-
     deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
+}
+
+
+
+document.getElementById("btn-apply-mode").onclick = applyGameMode;
+function applyGameMode(selectedGameMode = null) {
+    if (selectedGameMode === null || typeof (selectedGameMode) != typeof ("")) {
+        selectedGameMode = document.getElementById("li-game-mode").value;
+    }
+    if (selectedGameMode === GAME_MODE.main) {
+        document.getElementById("txt-current-game-mode").innerText = "本戦";
+        document.getElementById("game-mode-option-main").selected = true;
+    } else if (selectedGameMode === GAME_MODE.final) {
+        document.getElementById("txt-current-game-mode").innerText = "決勝戦"
+        document.getElementById("game-mode-option-final").selected = true;
+    } else {
+        return;
+    }
+    gameMode = selectedGameMode;
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").value = gameMode;
+}
+
+document.getElementById("li-game-mode").onchange = function () {
+    const selectedGameMode = document.getElementById("li-game-mode").value;
+    if (selectedGameMode != gameMode) {
+        document.getElementById("btn-apply-mode").removeAttribute("disabled");
+    }
+}
+
+function makeToDisableModeSelect() {
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").setAttribute("disabled", true);
+    document.getElementById("li-game-mode").value = gameMode;
+}
+
+function makeToEnableModeSelect() {
+    document.getElementById("li-game-mode").removeAttribute("disabled");
+    document.getElementById("li-game-mode").value = gameMode;
+
+    // 選択リストの値を変更しない限り、適用ボタンは無効化したままにしておく
+    document.getElementById("btn-apply-mode").setAttribute("disabled", true);
 }
 
 function toggleCard(obj, id) {
@@ -400,8 +459,8 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
     document.getElementById("txt-console-card-title").innerText = cardTitle;
 
     // チェックボックス（フラグ）の設定
-    document.getElementById("checkbox-vertex-is-destination", vertex.is_destination);
-    document.getElementById("checkbox-vertex-is-via-point", vertex.is_via_point);
+    document.getElementById("checkbox-vertex-is-destination").checked = vertex.is_destination;
+    document.getElementById("checkbox-vertex-is-via-point").checked = vertex.is_via_point;
 
     // 座標の設定
     document.getElementById("number-vertex-coordinate-x").value = vertex.x;
@@ -549,6 +608,9 @@ function adjustCanvas() {
 }
 adjustCanvas();
 window.onresize = adjustCanvas;
+
+/**** キャンバス右クリック時に独自メニューを出すための処理 ****/
+
 
 /**** 自由にドラッグして配置できるUIを実現するための処理 ****/
 let beforeX = null;  // ドラッグ Event の一番最後の座標がいつも(0, 0)になってしまう問題を解消するために使用
