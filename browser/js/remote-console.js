@@ -363,6 +363,17 @@ function makeRestartButton() {
     btnElm.removeAttribute("disabled");
 }
 
+document.getElementById("btn-console-set-coordinate-and-tolerance-to-goto").onclick = setCoordinateAndToleranceFromVertexEditor;
+function setCoordinateAndToleranceFromVertexEditor() {
+    const x = document.getElementById("number-vertex-coordinate-x").value;
+    const y = document.getElementById("number-vertex-coordinate-y").value;
+    const tolerance = document.getElementById("number-vertex-tolerance").value;
+    document.getElementById("number-goto-coordinate-x").value = x;
+    document.getElementById("number-goto-coordinate-y").value = y;
+    document.getElementById("number-goto-tolerance").value = tolerance;
+    document.getElementById("number-goto-tolerance").dispatchEvent(new Event('input'));
+}
+
 document.getElementById("btn-stop").onclick = stopButton;
 function stopButton() {
     if (deviceIot === null) {
