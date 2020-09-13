@@ -207,15 +207,6 @@ const front_layer_sketch = function (p) {
         if (odom != null && mergedCostmap != null) {
             drawTurtleBot3(p, odom, mergedCostmap, cellSize, consoleWidth, consoleHeight);
         }
-        if (activeVertexId != null) {
-            p.push();
-            p.strokeWeight(4);
-            p.stroke(255, 255, 0);
-            p.fill(0, 0, 0, 0);
-            p.translate(-consoleWidth / 2 + vertexCoordinateDictOnCanvas[activeVertexId].x0, -consoleHeight / 2 + vertexCoordinateDictOnCanvas[activeVertexId].y0);  // 原点を vertex の位置にする
-            p.circle(0, 0, cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE + 1));
-            p.pop();
-        }
     };
 
     function mouseClicked(obj) {
@@ -243,7 +234,7 @@ const front_layer_sketch = function (p) {
                     }
                 }
                 setDataOnVertexEditor(activeVertexId, editMapGraph[activeVertexId], linkedVertexList, unlinkedVertexList);
-
+                middleLayerP5.redraw();
                 return;
             }
         }
@@ -357,21 +348,33 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
         const y0 = cellSize / resolution * (mapGraph[key].y - costmap.info.origin.position.y);
         vertexIdListOnCanvas.unshift(key); // vertex が重なった際、手前のほうの vertex をクリック判定するために unshift を使用
         vertexCoordinateDictOnCanvas[key] = { x0, y0 };
-        p.stroke("#00bfff");
+
+        p.push();
+        p.stroke("#87cefa");
+        p.fill("#87cefa");
+        if (key === activeVertexId) {
+            p.stroke("#ffd700");
+            p.fill("#ffd700");
+        }
         p.strokeWeight(2);
-        p.fill("#00bfff");
         p.circle(x0, y0, cellSize * VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE);
+        p.pop();
 
-        p.fill(0);
-        p.textFont(p.VERTEX_ID_FONT);
-        p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE - 1));
-        p.textAlign(p.CENTER, p.CENTER);
-        p.text(key, x0, y0);
-
+        p.push();
         p.strokeWeight(2);
         p.stroke("#ff00ff");
         p.noFill();
         p.circle(x0, y0, cellSize / resolution * mapGraph[key].tolerance * 2);
+        p.pop();
+
+        p.push();
+        p.noStroke();
+        p.fill(0);
+        p.textFont(p.VERTEX_ID_FONT);
+        p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE) * 0.6);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text(key, x0, y0);
+        p.pop();
     }
 }
 
@@ -677,7 +680,7 @@ function closeConsoleCard(id) {
     activeVertexId = null;
     unlinkedVertexList.length = 0;
     linkedVertexList.length = 0;
-    frontLayerP5.redraw();
+    middleLayerP5.redraw();
 }
 
 function updateLinkedVertexButton(obj) {
