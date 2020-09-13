@@ -46,6 +46,9 @@
                             is_via_point
                         </label>
                     </div>
+                    <div class="col-12 pl-0 mt-2 mb-1">
+                        座標
+                    </div>
                     <div class="input-group input-group-sm col-6 pl-0 pb-1">
                         <div class="input-group-prepend">
                             <span class="input-group-text" id="inputGroup-vertex-coordinate-x">X</span>
@@ -60,7 +63,16 @@
                         <input class="form-control" id="number-vertex-coordinate-y" type="number" step="0.1"
                             aria-label="Y 座標" aria-describedby="inputGroup-vertex-coordinate-y">
                     </div>
-                    <hr>
+                    <div class="input-group input-group-sm col-12 pl-0 pr-0 pb-1 mt-1">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="inputGroup-vertex-tolerance">tolerance</span>
+                        </div>
+                        <input class="form-control" id="number-vertex-tolerance" type="number" step="0.01" min="0"
+                            value="" aria-label="tolerance" aria-describedby="inputGroup-vertex-tolerance">
+                    </div>
+                    <button type="button" class="btn btn-sm col-12 btn-secondary btn-block btn-line-through-on-disabled mt-2"
+                        id="btn-console-set-coordinate-and-tolerance-to-goto">座標をGoToへ適用</button>
+
                     <div class="col-12 pl-0 pr-0 mt-2">
                         Linked Vertex ID
                         <div id="linked-vertex-badge-list">
@@ -137,14 +149,30 @@
                                 onclick="toggleCard(this, 'card-body-goto')">
                         </div>
                         <div class="card-body row p-2 m-0 mt-1" id="card-body-goto">
-                            <div class="form-group col-6 m-0 mt-2 pl-0">
-                                <select id="li-target-vertex" class="form-control">
-                                    <option>0</option>
-                                    <option>1</option>
-                                </select>
+                            <div class="input-group input-group-sm col-6 pl-0 pb-1">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text" id="inputGroup-goto-coordinate-x">X</span>
+                                </div>
+                                <input class="form-control" id="number-goto-coordinate-x" type="number" step="0.01"
+                                    aria-label="X 座標" aria-describedby="inputGroup-goto-coordinate-x">
+                            </div>
+                            <div class="input-group input-group-sm col-6 pl-0 pr-0 pb-1">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text" id="inputGroup-goto-coordinate-y">Y</span>
+                                </div>
+                                <input class="form-control" id="number-goto-coordinate-y" type="number" step="0.01"
+                                    aria-label="Y 座標" aria-describedby="inputGroup-goto-coordinate-y">
+                            </div>
+                            <div class="input-group input-group-sm col-12 pl-0 pr-0 pb-1 mt-1">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text" id="inputGroup-goto-tolerance">tolerance</span>
+                                </div>
+                                <input class="form-control" id="number-goto-tolerance" type="number" step="0.01"
+                                    min="0" value="" aria-label="tolerance"
+                                    aria-describedby="inputGroup-goto-tolerance">
                             </div>
                             <button type="button"
-                                class="btn col-6 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
+                                class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
                                 disabled>GoTo</button>
                         </div>
                     </div>

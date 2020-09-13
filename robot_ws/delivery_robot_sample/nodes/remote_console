@@ -38,15 +38,15 @@ class RemoteConsole():
         self.__map_graph_pub_data = None
         self.__path_pub_data = None
         self.__status_list = {  # ロボットがとりうる状態
-            "initializing": {"status": "initializing" , "msg": "初期化処理中 >>>走行不能<<<"},
-            "ready": {"status": "ready" , "msg": "走行可能（スタート可能）"},
-            "running": {"status": "running" , "msg": "走行中（停止・手動操作可能）"},
-            "delivery": {"status": "delivery" , "msg": "配達ポイントへ到着（リスタート・手動操作可能）"},
-            "goal": {"status": "goal" , "msg": "ゴールへ到着（リトライ・手動操作可能）"},
-            "stop": {"status": "stop" , "msg": "停止中（リスタート・手動操作可能）"},
-            "manual": {"status": "manual" , "msg": "手動操作中（リスタート可能）"},
-            "error": {"status": "error" , "msg": "エラー発生 >>>走行不能<<<"},
-            "terminating": {"status": "terminating" , "msg": "終了中 >>>走行不能<<<"}
+            "initializing": {"status": "initializing" , "msg": "初期化処理中 >>>走行不能<<<", "isGoto": False},
+            "ready": {"status": "ready" , "msg": "走行可能（スタート可能）", "isGoto": False},
+            "running": {"status": "running" , "msg": "走行中（停止・手動操作可能）", "isGoto": False},
+            "delivery": {"status": "delivery" , "msg": "配達ポイントへ到着（リスタート・手動操作可能）", "isGoto": False},
+            "goal": {"status": "goal" , "msg": "ゴールへ到着（リトライ・手動操作可能）", "isGoto": False},
+            "stop": {"status": "stop" , "msg": "停止中（リスタート・手動操作可能）", "isGoto": False},
+            "manual": {"status": "manual" , "msg": "手動操作中（リスタート可能）", "isGoto": False},
+            "error": {"status": "error" , "msg": "エラー発生 >>>走行不能<<<", "isGoto": False},
+            "terminating": {"status": "terminating" , "msg": "終了中 >>>走行不能<<<", "isGoto": False},
         }
         self.__game_mode_list = {
             "main": "GAME_MODE_IS_MAIN",  # 本戦モード
@@ -122,6 +122,14 @@ class RemoteConsole():
         if payload["buttonName"] == "btn-retry-game" and payload["isClicked"]:
             pub_data = json.dumps({"action": "retryGame"})
             self.__to_commander_pub.publish(pub_data)
+        
+        if payload["buttonName"] == "btn-goto" and payload["isClicked"]:
+            if "point" not in payload:
+                rospy.logwarn("[RemoteConsole::__button_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+                return
+            pub_data = json.dumps({"is_interrupted": True, "mode": "goto", "point": payload["point"]})
+            self.__twugo_method_pub.publish(pub_data)
+            rospy.loginfo("[RemoteConsole::__button_cb] btn-stop published: %s" % pub_data)
 
     def __request_data_cb(self, client, userdata, message):
         data = {}
@@ -234,13 +242,26 @@ class RemoteConsole():
             rospy.logerr("RemoteConsole::__robot_status_cb KEY 'status' がありません")
             return
         status = payload["status"]
-        if status not in self.__status_list:
+        if (status not in self.__status_list) and (status != "goto"):
             rospy.logerr("RemoteConsole::__robot_status_cb '%s' は定義されていない「状態」です" % status)
             return
-        if self.__current_status["status"] == "goal" and (status == "manual" or status == "stop" or status == "running"):
+        if (self.__current_status["status"] == "goal" or self.__current_status["status"] == "ready") and (status == "manual" or status == "stop" or status == "running"):
             # status がゴールのまま、手動操作や停止処理が実行されても、status の変更は行わない
             return
-        self.__current_status = self.__status_list[status]
+        if status in self.__status_list:
+            self.__current_status = self.__status_list[status]
+            self.__current_status["isGoto"] = False
+        if status == "goto":
+            self.__current_status["isGoto"] = True
+            if "point" in payload:
+                point = payload["point"]
+                if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
+                    rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
+                else:
+                    self.__current_status["point"] = point
+            else:
+                rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+
         self.__publish_current_status_to_aws_iot()
 
     def __trimed_merged_costmap_cb(self, data):

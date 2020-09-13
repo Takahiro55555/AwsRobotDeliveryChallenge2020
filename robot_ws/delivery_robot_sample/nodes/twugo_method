@@ -35,7 +35,7 @@ class TwugoMethod():
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.odom_cb, queue_size=1)
         self._twugo_method_sub = rospy.Subscriber(
-            "/twugo_method", String, self.set_goal, queue_size=1)
+            "/twugo_method", String, self.twugo_method_cb, queue_size=1)
         self._restart_method_sub = rospy.Subscriber(
             "/twugo_method/restart", String, self.restart_cb, queue_size=1)
 
@@ -45,6 +45,7 @@ class TwugoMethod():
         self._is_started = False
         self._is_before_destination = False  # 目標地点に到達する前に停止しないようにするためのフラグ
         self._is_retry_rotating = False      # リトライするときにロボットをスタート地点で正面を向かせるためのフラグ
+        self._is_goto_mode = False
         self._turn_p = 0.95
         self._x_goal = 0
         self._y_goal = 0
@@ -57,7 +58,7 @@ class TwugoMethod():
                 continue
             time.sleep(d)
 
-    def set_goal(self, data):
+    def twugo_method_cb(self, data):
         payload = json.loads(data.data)
         if "is_goal" in payload and payload["is_goal"]:
             self._is_started = False
@@ -68,11 +69,26 @@ class TwugoMethod():
                 rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
                 return
             if payload["mode"] == "stop":
+                self._is_goto_mode = False
                 self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
                 return
             if payload["mode"] == "manual":
+                self._is_goto_mode = False
                 self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
                 return
+            if payload["mode"] == "goto":
+                if "point" not in payload:
+                    rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+                    return
+                point = payload["point"]
+                if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
+                    rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
+                    return
+                self._is_goto_mode = True
+                self._x_goto = float(point["x"])
+                self._y_goto = float(point["y"])
+                self._tolerance_goto = float(point["tolerance"])
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goto", "point": point}))
             return
         elif self._is_before_destination:
             self._is_started = False
@@ -108,11 +124,21 @@ class TwugoMethod():
             self.rotate_robot(1.0, 0.0)
             return
 
+        if self._is_goto_mode:
+            robo_x, robo_y = self._odom.pose.pose.position.x, self._odom.pose.pose.position.y
+            error = ((robo_x - self._x_goto)**2 + (robo_y - self._y_goto)**2)
+            if error < (self._tolerance_goto**2)*2:
+                self._is_goto_mode = False
+            else:
+                self.goto_point(self._x_goto, self._y_goto)
+                return
+
         if not self._is_started and not self._is_stoped:
             self._twist.linear.x = 0
             self._twist.angular.z = 0
             self._cmd_pub.publish(self._twist)
             self._is_stoped = True
+
         if not self._is_started:
             return
 
