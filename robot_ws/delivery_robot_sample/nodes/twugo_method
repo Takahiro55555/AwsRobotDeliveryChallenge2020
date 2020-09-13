@@ -121,15 +121,25 @@ class TwugoMethod():
         atan2_tmp = math.atan2(y - r_y, x - r_x)
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
                               math.cos(atan2_tmp - r_ang))
-        turn_speed = ang_diff * self._turn_p
-        
-        linear_speed = LINERAR_MAX_SPEED*(1-abs(ang_diff)/math.pi)
-        if abs(ang_diff) > math.pi/6:
-            linear_speed = 0
 
-        self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
-        self._twist.angular.z = self.sign(
-            turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
+        back_ang_diff = self.sign(ang_diff) * math.pi - ang_diff
+        speed_zero_ang_threshold = math.pi/10
+
+        if abs(ang_diff) < math.pi/2:
+            linear_speed = LINERAR_MAX_SPEED*(1-abs(ang_diff)/math.pi)
+            if abs(ang_diff) > speed_zero_ang_threshold:
+                linear_speed = 0
+            self._twist.linear.x = min([LINERAR_MAX_SPEED, linear_speed])
+            turn_speed = ang_diff * self._turn_p
+            self._twist.angular.z = self.sign(turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
+        else:
+            linear_speed = LINERAR_MAX_SPEED*(1-abs(back_ang_diff)/math.pi)
+            if abs(back_ang_diff) > speed_zero_ang_threshold:
+                linear_speed = 0
+            self._twist.linear.x = -min([LINERAR_MAX_SPEED, linear_speed])
+            turn_speed = back_ang_diff * self._turn_p
+            self._twist.angular.z = -self.sign(turn_speed) * min([ANGULER_MAX_SPEED, abs(turn_speed)])
+
         self._cmd_pub.publish(self._twist)
         self._is_stoped = False
 
