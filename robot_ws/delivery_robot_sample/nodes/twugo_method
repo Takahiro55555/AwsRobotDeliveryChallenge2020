@@ -63,8 +63,16 @@ class TwugoMethod():
             self._is_started = False
             return
         elif "is_interrupted" in payload and payload["is_interrupted"]:
-            self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
             self._is_started = False
+            if "mode" not in payload:
+                rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
+                return
+            if payload["mode"] == "stop":
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
+                return
+            if payload["mode"] == "manual":
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
+                return
             return
         elif self._is_before_destination:
             self._is_started = False
@@ -86,6 +94,7 @@ class TwugoMethod():
         if "data" in payload and payload["data"] == "is_retry":
             rospy.loginfo('[TwugoMethod] Retry now.')
             self._is_retry_rotating = True
+            self._is_started = False  # ゴール後にリスタートボタンが押され、このフラグが立ったままになってしまうことがある
             return
 
         self._is_started = True
