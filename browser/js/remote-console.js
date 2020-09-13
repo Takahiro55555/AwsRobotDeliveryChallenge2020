@@ -46,6 +46,7 @@ async function setupAwsIot() {
         if (topic == subscribeTopics.mergedCostmap) {
             mergedCostmap = msg;
             backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
             frontLayerP5.redraw();
         } else if (topic == subscribeTopics.globalCostmap) {
             globalCostmap = msg;
@@ -59,7 +60,7 @@ async function setupAwsIot() {
                 editMapGraph = msg;
             }
             originalMapGraph = msg;
-            backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
         } else if (topic == subscribeTopics.currentStatus) {
             /**** 各種ボタンの有効化・無効化処理 ****/
             if (!("status" in msg)) {
@@ -86,13 +87,13 @@ async function setupAwsIot() {
                     document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 }
             }
-            if("isGoto" in msg && msg.isGoto){
+            if ("isGoto" in msg && msg.isGoto) {
                 document.getElementById("btn-stop").removeAttribute("disabled");
                 currentGotoPoint = msg.point;
-                backgroundLayerP5.redraw();
-            }else{
+                middleLayerP5.redraw();
+            } else {
                 currentGotoPoint = null;
-                backgroundLayerP5.redraw();
+                middleLayerP5.redraw();
             }
             currentStatus = STATUS_DICT[recievedStatus];
         } else {
@@ -140,11 +141,31 @@ const background_layer_sketch = function (p) {
 
         /*** 以下、描画処理 ***/
         drawCostMap(p);
+    };
+};
 
-        // TODO: 経路情報(MapGraph)の描画レイヤーを新たに追加した middle-layer に移植する
+
+const middle_layer_sketch = function (p) {
+    p.preload = function () {
+        p.VERTEX_ID_FONT = p.loadFont('/font/Roboto-Black.ttf');
+    };
+
+    p.setup = function () {
+        p.createCanvas(consoleWidth, consoleHeight);
+        p.background(0, 0, 0, 0);
+        p.noLoop();
+    };
+
+    p.draw = function () {
+        console.log("Middle layer draw");
+        /*** 以下、初期化処理 ***/
+        p.clear();
+
+        /*** 以下、描画処理 ***/
         if (mergedCostmap != null && originalMapGraph != null) {
             drawMapGraph(p, originalMapGraph, mergedCostmap, cellSize);
         }
+
         if (isDrawGotoPoint && mergedCostmap != null) {
             const x = document.getElementById("number-goto-coordinate-x").value;
             const y = document.getElementById("number-goto-coordinate-y").value;
@@ -156,11 +177,11 @@ const background_layer_sketch = function (p) {
             }
             drawTemporaryGotoPoint(p, x, y, tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
         }
-        if(mergedCostmap != null && currentGotoPoint != null){
+        if (mergedCostmap != null && currentGotoPoint != null) {
             drawCurrentGotoPoint(p, currentGotoPoint.x, currentGotoPoint.y, currentGotoPoint.tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
         }
     };
-};
+}
 
 let activeVertexId = null;
 let unlinkedVertexList = [];
@@ -226,7 +247,7 @@ const front_layer_sketch = function (p) {
                 return;
             }
         }
-        
+
         // GoTo を設定
     }
 };
@@ -242,7 +263,7 @@ const front_layer_sketch = function (p) {
  * @param {number} cellSize Canvas上で描画する際のMap1ピクセル当たりの大きさ[pix]
  * @param {string} strokeColor 表示する際の色
  */
-function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#000"){
+function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor = "#000") {
     const x0 = cellSize / resolution * (x - origin.position.x);
     const y0 = cellSize / resolution * (y - origin.position.y);
     const circleRadius = cellSize / resolution * tolerance;
@@ -255,11 +276,11 @@ function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize
     p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
     p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
     p.strokeWeight(2);
-    p.circle(x0, y0, circleRadius*2);
+    p.circle(x0, y0, circleRadius * 2);
     p.pop();
 }
 
-function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#ff4500"){
+function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor = "#ff4500") {
     const x0 = cellSize / resolution * (x - origin.position.x);
     const y0 = cellSize / resolution * (y - origin.position.y);
     const circleRadius = cellSize / resolution * tolerance;
@@ -271,7 +292,7 @@ function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, 
     p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
     p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
     p.strokeWeight(3);
-    p.circle(x0, y0, circleRadius*2);
+    p.circle(x0, y0, circleRadius * 2);
     p.pop();
 }
 
@@ -457,11 +478,11 @@ function onInputGoto() {
     }
     document.getElementById("btn-goto").removeAttribute("disabled");
     isDrawGotoPoint = true;
-    backgroundLayerP5.redraw();
+    middleLayerP5.redraw();
 }
 
 document.getElementById("btn-goto").onclick = requestGoto;
-function requestGoto(){
+function requestGoto() {
     if (deviceIot === null) {
         return;
     }
@@ -478,8 +499,8 @@ function requestGoto(){
     payload["buttonName"] = "btn-goto";
     payload["requestId"] = requestId;
     payload["isClicked"] = true;
-    payload["point"] = {"x": x, "y": y, "tolerance": tolerance};
-    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));  
+    payload["point"] = { "x": x, "y": y, "tolerance": tolerance };
+    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
 
 document.getElementById("btn-stop").onclick = stopButton;
@@ -708,8 +729,10 @@ function copyValue(obj, targetElmId) {
 
 /* Sketch を DOM に追加 */
 const backgroundLayerP5 = new p5(background_layer_sketch, "background-layer");
+const middleLayerP5 = new p5(middle_layer_sketch, "middle-layer");
 const frontLayerP5 = new p5(front_layer_sketch, "front-layer");
 const backgroundLayerParent = document.getElementById("background-layer");
+const middleLayerParent = document.getElementById("middle-layer");
 const frontLayerParent = document.getElementById("front-layer");
 const consoleElement = document.getElementById("console");
 
@@ -721,11 +744,14 @@ function adjustCanvas() {
     consoleElement.style.height = String(consoleHeight) + "px";
     backgroundLayerParent.style.height = String(consoleHeight) + "px";
     backgroundLayerParent.style.width = String(consoleWidth) + "px";
+    middleLayerParent.style.height = String(consoleHeight) + "px";
+    middleLayerParent.style.width = String(consoleWidth) + "px";
     frontLayerParent.style.height = String(consoleHeight) + "px";
     frontLayerParent.style.width = String(consoleWidth) + "px";
 
     /* Canvas サイズの変更 */
     backgroundLayerP5.resizeCanvas(consoleWidth, consoleHeight);
+    middleLayerP5.resizeCanvas(consoleWidth, consoleHeight);
     frontLayerP5.resizeCanvas(consoleWidth, consoleHeight);
 }
 adjustCanvas();
