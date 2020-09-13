@@ -31,8 +31,10 @@ class RemoteConsole():
         self.__mqtt_client = Mqtt(config, subscribe_cb_list=subscribe_cb_list)
 
         # AWS IoT には retain 機能が無いため、こちら側で最後に Publish したデータを保持しておく
+        self.__trimed_global_costmap_pub_data = None
         self.__odom_pub_data = None
         self.__trimed_merged_costmap_pub_data = None
+        self.__trimed_local_costmap_pub_data = None
         self.__map_graph_pub_data = None
         self.__path_pub_data = None
         self.__status_list = {  # ロボットがとりうる状態
@@ -56,10 +58,12 @@ class RemoteConsole():
         # AWS IoT へ各種データを Publish する関数
         #   NOTE: 辞書にまとめておくと、すべてのデータを Publish したいときに便利
         self.__data_publish_funcs = {}  # AWS IoT へデータを Publish する関数をまとめた辞書
-        self.__data_publish_funcs['costmap'] = self.__publish_trimed_merged_costmap_to_aws_iot
         self.__data_publish_funcs['currentStatus'] = self.__publish_current_status_to_aws_iot
+        self.__data_publish_funcs['mergedCostmap'] = self.__publish_trimed_merged_costmap_to_aws_iot
+        self.__data_publish_funcs['globalCostmap'] = self.__publish_trimed_global_costmap_to_aws_iot
         self.__data_publish_funcs['odom'] = self.__publish_odom_to_aws_iot
         self.__data_publish_funcs['path'] = self.__publish_path_to_aws_iot
+        self.__data_publish_funcs['localCostmap'] = self.__publish_trimed_local_costmap_to_aws_iot
         self.__data_publish_funcs['mapGraph'] = self.__publish_map_graph_to_aws_iot
 
         # ROS Publisher
@@ -68,9 +72,10 @@ class RemoteConsole():
         self.__to_commander_pub = rospy.Publisher('/remote_console/to_commander', String, queue_size=1, latch=True)
 
         # ROS Subscriber
-        self.__trimed_merged_costmap_sub = rospy.Subscriber(
-            "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
-        self.__trimed_merged_costmap_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
+        self.__trimed_local_costmap_sub = rospy.Subscriber("/obstacle_detector/local_costmap/trimed", OccupancyGrid, self.__trimed_local_costmap_cb, queue_size=1)
+        self.__trimed_global_costmap_sub = rospy.Subscriber("/obstacle_detector/global_costmap/trimed", OccupancyGrid, self.__trimed_global_costmap_cb, queue_size=1)
+        self.__trimed_merged_costmap_sub = rospy.Subscriber("/obstacle_detector/merged_costmap/trimed", OccupancyGrid, self.__trimed_merged_costmap_cb, queue_size=1)
+        self.__odom_sub = rospy.Subscriber("/odom", Odometry, self.__odom_cb, queue_size=1)
         self.__map_graph_sub = rospy.Subscriber("/planner/map_graph", String, self.__map_graph_cb, queue_size=1)
         self.__map_graph_sub = rospy.Subscriber("/planner/path", String, self.__path_cb, queue_size=1)
         self.__robot_status_sub = rospy.Subscriber("/remote_console/update_status", String, self.__robot_status_cb, queue_size=1)
@@ -134,8 +139,8 @@ class RemoteConsole():
             rospy.logwarn("[RemoteConsole::__request_data_cb] Request message format is not valid. 'requestDataList' のフォーマットはListである必要があります。")
             return
         if 'all' in payload['requestDataList']:
-            for key in self.__data_publish_funcs:
-                self.__data_publish_funcs[key]()
+            for func in self.__data_publish_funcs.values():
+                func()
             return
         for key in payload['requestDataList']:
             if key in self.__data_publish_funcs:
@@ -145,6 +150,34 @@ class RemoteConsole():
         
 
     ############ ROS Topic callback hundler ############
+    def __trimed_global_costmap_cb(self, data):
+        h, w = data.info.height, data.info.width
+        costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
+
+        # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
+        self.__trimed_global_costmap_pub_data = dict(
+            info = dict(
+                height = h,
+                width = w,
+                resolution = data.info.resolution,
+                origin = dict(
+                    position = dict(
+                        x = data.info.origin.position.x,
+                        y = data.info.origin.position.y,
+                        z = data.info.origin.position.z
+                    ),
+                    orientation = dict(
+                        x = data.info.origin.orientation.x,
+                        y = data.info.origin.orientation.y,
+                        z = data.info.origin.orientation.z,
+                        w = data.info.origin.orientation.w
+                    )
+                )
+            ),
+            data = costmap_array
+        )
+        self.__publish_trimed_global_costmap_to_aws_iot()
+
     def __odom_cb(self, data):
         if self.__current_status["status"] == self.__status_list["initializing"]["status"]:
             self.__current_status = self.__status_list["ready"]
@@ -238,6 +271,34 @@ class RemoteConsole():
         )
         self.__publish_trimed_merged_costmap_to_aws_iot()
 
+    def __trimed_local_costmap_cb(self, data):
+        h, w = data.info.height, data.info.width
+        costmap_array = [[int(pix) for pix in row] for row in np.array(data.data, dtype='uint8').reshape(h, w)]
+
+        # OccupancyGrid オブジェクトのままでは、JSON文字列に変換できないため辞書型に無理やり変換
+        self.__trimed_local_costmap_pub_data = dict(
+            info = dict(
+                height = h,
+                width = w,
+                resolution = data.info.resolution,
+                origin = dict(
+                    position = dict(
+                        x = data.info.origin.position.x,
+                        y = data.info.origin.position.y,
+                        z = data.info.origin.position.z
+                    ),
+                    orientation = dict(
+                        x = data.info.origin.orientation.x,
+                        y = data.info.origin.orientation.y,
+                        z = data.info.origin.orientation.z,
+                        w = data.info.origin.orientation.w
+                    )
+                )
+            ),
+            data = costmap_array
+        )
+        self.__publish_trimed_local_costmap_to_aws_iot()
+
     def __map_graph_cb(self, data):
         self.__map_graph_pub_data = data.data
         self.__publish_map_graph_to_aws_iot()
@@ -251,7 +312,14 @@ class RemoteConsole():
         self.__current_status["gameMode"] = self.__current_game_mode
         pub_topic = "%s/%s/remote_console/current_status" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
         self.__mqtt_client.mqtt_publish(self.__current_status, pub_topic)
-        rospy.loginfo("[RemoteConsole::__publish_current_status_to_aws_iot] Current status: %s" % self.__current_status)
+
+    def __publish_trimed_global_costmap_to_aws_iot(self):
+        if self.__trimed_global_costmap_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_trimed_global_costmap_to_aws_iot] __global_costmap_pub_data is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/global_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__trimed_global_costmap_pub_data, pub_topic)
+        rospy.loginfo("[RemoteConsole::__publish_trimed_global_costmap_to_aws_iot] published global costmap")
 
     def __publish_odom_to_aws_iot(self):
         if self.__odom_pub_data is None:
@@ -266,6 +334,13 @@ class RemoteConsole():
             return
         pub_topic = "%s/%s/planner/path" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
         self.__mqtt_client.mqtt_publish(self.__path_pub_data, pub_topic)
+
+    def __publish_trimed_local_costmap_to_aws_iot(self):
+        if self.__trimed_local_costmap_pub_data is None:
+            rospy.logwarn("[RemoteConsole::__publish_trimed_local_costmap_to_aws_iot] __local_costmap_pub_data is None, so can not publish data.")
+            return
+        pub_topic = "%s/%s/local_costmap/trimed" % (self.__thing_name, self.__mqtt_publish_topic_prefix)
+        self.__mqtt_client.mqtt_publish(self.__trimed_local_costmap_pub_data, pub_topic)
 
     def __publish_trimed_merged_costmap_to_aws_iot(self):
         if self.__trimed_merged_costmap_pub_data is None:
