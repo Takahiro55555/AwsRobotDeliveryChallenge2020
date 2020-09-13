@@ -122,12 +122,7 @@ class TwugoMethod():
         ang_diff = math.atan2(math.sin(atan2_tmp - r_ang),
                               math.cos(atan2_tmp - r_ang))
 
-        back_ang_diff = 0.0
-        if ang_diff > 0:
-            back_ang_diff = math.pi - ang_diff
-        else:
-            back_ang_diff = -math.pi - ang_diff
-
+        back_ang_diff = self.sign(ang_diff) * math.pi - ang_diff
         speed_zero_ang_threshold = math.pi/10
 
         if abs(ang_diff) < math.pi/2:
