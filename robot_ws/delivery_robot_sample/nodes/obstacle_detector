@@ -260,8 +260,6 @@ class ObstacleDetector():
         if start["x"] > end["x"]:
             start["x"], end["x"] = 0, width - 1
 
-        rospy.loginfo("[ObstacleDetector::__trim_costmap] start: %s" % start)
-        rospy.loginfo("[ObstacleDetector::__trim_costmap] end: %s" % end)
         # 切り取り
         trim_h, trim_w = end["y"] - start["y"] + 1, end["x"] - start["x"] + 1
         trimed_costmap_array = np.zeros((trim_h, trim_w), dtype='uint8')
