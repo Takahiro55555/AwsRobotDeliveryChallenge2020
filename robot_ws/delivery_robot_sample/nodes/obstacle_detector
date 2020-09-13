@@ -328,12 +328,20 @@ class ObstacleDetector():
                 points = set()
                 self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__map_graph[str(vertex_id)]["x"] + offset_x)/res, (self.__map_graph[str(vertex_id)]["y"] + offset_y)/res))
                 height, width = costmap.get_size()
+                costmap_count_threshold = 4
+                costmap_count = 0
+                points = sorted(points)
                 for (x, y) in points:
                     if not 0 <= x < width:
                         continue
                     if not 0 <= y < height:
                         continue
+                    # rospy.loginfo("vertex_id: %d    x: %d    y: %d    costmap: %d" % (vertex_id, x, y, costmap_array[y][x]))
                     if costmap_array[y][x] >= self.__threshold:
+                        costmap_count += 1
+                    else:
+                        costmap_count = 0
+                    if costmap_count >= costmap_count_threshold:
                         rospy.logwarn("[Obstacle detector] Detect obstacle!!")
                         payload = {}
                         payload["vertex_id"] = vertex_id
@@ -353,12 +361,20 @@ class ObstacleDetector():
             offset_y = costmap_origin.position.y * -1
             self.__calc_center_point(points, distance, ((self.__pre_vertex_pos.x + offset_x)/res, (self.__pre_vertex_pos.y + offset_y)/res), ((self.__next_vertex_pos.x + offset_x)/res, (self.__next_vertex_pos.y + offset_y)/res))
             height, width = costmap.get_size()
+            costmap_count_threshold = 4
+            costmap_count = 0
+            points = sorted(points)
             for (x, y) in points:
                 if not 0 <= x < width:
                     continue
                 if not 0 <= y < height:
                     continue
+                # rospy.loginfo("x: %d    y: %d    costmap: %d" % (x, y, costmap_array[y][x]))
                 if costmap_array[y][x] >= self.__threshold:
+                    costmap_count += 1
+                else:
+                    costmap_count = 0
+                if costmap_count >= costmap_count_threshold:
                     rospy.logwarn("[Obstacle detector] Detect obstacle!!")
                     self.__obstacle_detect_pub.publish(json.dumps({"data": "detect_obstacle"}))
                     break
