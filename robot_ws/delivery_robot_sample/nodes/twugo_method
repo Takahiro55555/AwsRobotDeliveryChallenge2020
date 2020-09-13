@@ -51,6 +51,13 @@ class TwugoMethod():
         self._y_goal = 0
         self._odom = None
 
+        # gameMode関連
+        self.__game_mode_list = {
+            "main": "GAME_MODE_IS_MAIN",  # 本戦モード
+            "final": "GAME_MODE_IS_FINAL"  # 決勝戦モード
+        }
+        self.__current_game_mode = None
+
     def main(self):
         while not rospy.is_shutdown():
             d = self._next_synctime - time.time()
@@ -60,40 +67,48 @@ class TwugoMethod():
 
     def twugo_method_cb(self, data):
         payload = json.loads(data.data)
-        if "is_goal" in payload and payload["is_goal"]:
-            self._is_started = False
-            return
-        elif "is_interrupted" in payload and payload["is_interrupted"]:
-            self._is_started = False
-            if "mode" not in payload:
-                rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
+        if self.__current_game_mode == self.__game_mode_list["main"]:
+            if "is_goal" in payload and payload["is_goal"]:
+                self._is_started = False
                 return
-            if payload["mode"] == "stop":
-                self._is_goto_mode = False
-                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
-                return
-            if payload["mode"] == "manual":
-                self._is_goto_mode = False
-                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
-                return
-            if payload["mode"] == "goto":
-                if "point" not in payload:
-                    rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+            elif "is_interrupted" in payload and payload["is_interrupted"]:
+                self._is_started = False
+                if "mode" not in payload:
+                    rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
                     return
-                point = payload["point"]
-                if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
-                    rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
+                if payload["mode"] == "stop":
+                    self._is_goto_mode = False
+                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
                     return
-                self._is_goto_mode = True
-                self._x_goto = float(point["x"])
-                self._y_goto = float(point["y"])
-                self._tolerance_goto = float(point["tolerance"])
-                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goto", "point": point}))
-            return
-        elif self._is_before_destination:
-            self._is_started = False
-        
-        self._is_before_destination = payload["is_destination"]
+                if payload["mode"] == "manual":
+                    self._is_goto_mode = False
+                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
+                    return
+                if payload["mode"] == "goto":
+                    if "point" not in payload:
+                        rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+                        return
+                    point = payload["point"]
+                    if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
+                        rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
+                        return
+                    self._is_goto_mode = True
+                    self._x_goto = float(point["x"])
+                    self._y_goto = float(point["y"])
+                    self._tolerance_goto = float(point["tolerance"])
+                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goto", "point": point}))
+                return
+            elif self._is_before_destination:
+                self._is_started = False
+            
+            self._is_before_destination = payload["is_destination"]
+
+        elif self.__current_game_mode == self.__game_mode_list["final"]:
+            payload = json.loads(data.data)
+            if  payload["is_goal"]:
+                self._is_started = False
+                return
+
         self._x_goal = payload["x"]
         self._y_goal = payload["y"]
 
@@ -105,8 +120,11 @@ class TwugoMethod():
         $ rostopic pub --once -v /twugo_method/restart std_msgs/String '{data: "hoge"}'
         """
 
-        # retryするとき、正面を向かせる。
         payload = json.loads(data.data)
+        if "gameMode" in payload:
+            self.__current_game_mode = payload["gameMode"]
+
+        # retryするとき、正面を向かせる。
         if "data" in payload and payload["data"] == "is_retry":
             rospy.loginfo('[TwugoMethod] Retry now.')
             self._is_retry_rotating = True
@@ -158,7 +176,10 @@ class TwugoMethod():
                               math.cos(atan2_tmp - r_ang))
 
         back_ang_diff = self.sign(ang_diff) * math.pi - ang_diff
-        speed_zero_ang_threshold = math.pi/10
+        if self.__current_game_mode == self.__game_mode_list["main"]:
+            speed_zero_ang_threshold = math.pi/10
+        elif self.__current_game_mode == self.__game_mode_list["final"]:
+            speed_zero_ang_threshold = float("inf")
 
         if abs(ang_diff) < math.pi/2:
             linear_speed = LINERAR_MAX_SPEED*(1-abs(ang_diff)/math.pi)
