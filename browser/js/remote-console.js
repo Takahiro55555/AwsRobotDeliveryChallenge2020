@@ -16,7 +16,9 @@ async function getCognitoCredentials() {
     return credentials;
 }
 
-let costmap = null;
+let mergedCostmap = null;
+let globalCostmap = null;
+let localCostmap = null;
 let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
@@ -41,10 +43,14 @@ async function setupAwsIot() {
     // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
         const msg = JSON.parse(payload.toString());
-        if (topic == subscribeTopics.costmap) {
-            costmap = msg;
+        if (topic == subscribeTopics.mergedCostmap) {
+            mergedCostmap = msg;
             backgroundLayerP5.redraw();
             frontLayerP5.redraw();
+        } else if (topic == subscribeTopics.globalCostmap) {
+            globalCostmap = msg;
+        } else if (topic == subscribeTopics.localCostmap) {
+            localCostmap = msg;
         } else if (topic == subscribeTopics.odom) {
             odom = msg;
             frontLayerP5.redraw();
@@ -127,8 +133,8 @@ const background_layer_sketch = function (p) {
         drawCostMap(p);
 
         // TODO: 経路情報(MapGraph)の描画レイヤーを新たに追加した middle-layer に移植する
-        if (costmap != null && originalMapGraph != null) {
-            drawMapGraph(p, originalMapGraph, costmap, cellSize);
+        if (mergedCostmap != null && originalMapGraph != null) {
+            drawMapGraph(p, originalMapGraph, mergedCostmap, cellSize);
         }
     };
 };
@@ -154,8 +160,8 @@ const front_layer_sketch = function (p) {
         p.clear();
 
         /*** 以下、描画処理 ***/
-        if (odom != null && costmap != null) {
-            drawTurtleBot3(p, odom, costmap, cellSize, consoleWidth, consoleHeight);
+        if (odom != null && mergedCostmap != null) {
+            drawTurtleBot3(p, odom, mergedCostmap, cellSize, consoleWidth, consoleHeight);
         }
         if (activeVertexId != null) {
             p.push();
@@ -202,20 +208,20 @@ const front_layer_sketch = function (p) {
 
 let cellSize = null;
 function drawCostMap(p) {
-    if (costmap === null) {
+    if (mergedCostmap === null) {
         return;
     }
     p.noStroke();
     const colorFrom = p.color(255);
     const colorTo = p.color(0);
 
-    let w = consoleWidth / costmap.info.width;
-    let h = consoleHeight / costmap.info.height;
+    let w = consoleWidth / mergedCostmap.info.width;
+    let h = consoleHeight / mergedCostmap.info.height;
     cellSize = w < h ? w : h;
 
-    for (let row = 0; row < costmap.info.height; row++) {
-        for (let col = 0; col < costmap.info.width; col++) {
-            p.fill(p.lerpColor(colorFrom, colorTo, costmap.data[row][col] / 100));
+    for (let row = 0; row < mergedCostmap.info.height; row++) {
+        for (let col = 0; col < mergedCostmap.info.width; col++) {
+            p.fill(p.lerpColor(colorFrom, colorTo, mergedCostmap.data[row][col] / 100));
             p.rect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
     }
@@ -382,7 +388,7 @@ function retryGameButton() {
 
 document.getElementById("btn-apply-mode").onclick = applyGameMode;
 function applyGameMode(selectedGameMode = null) {
-    if (selectedGameMode === null || typeof(selectedGameMode) != typeof("")) {
+    if (selectedGameMode === null || typeof (selectedGameMode) != typeof ("")) {
         selectedGameMode = document.getElementById("li-game-mode").value;
     }
     if (selectedGameMode === GAME_MODE.main) {
