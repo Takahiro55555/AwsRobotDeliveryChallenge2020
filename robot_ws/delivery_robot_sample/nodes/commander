@@ -89,7 +89,6 @@ class Commander():
                 
     def path_cb(self, data):
         payload = json.loads(data.data)
-        rospy.loginfo("Commander::path_cb %s" % payload)
         self._step = payload
         self._current_step = 0
 

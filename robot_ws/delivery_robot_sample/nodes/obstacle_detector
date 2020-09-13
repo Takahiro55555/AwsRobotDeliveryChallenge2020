@@ -1,23 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from costmap import Costmap
+
 import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
 from geometry_msgs.msg import Pose, Point
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
-import cv2
-from cv_bridge import CvBridge
+
 import numpy as np
-import math
+import cv2
+
 import json
+import math
+
 
 class ObstacleDetector():
     def __init__(self):
         # ROS Subscriber
         self.__global_costmap_sub = rospy.Subscriber(
             "/move_base/global_costmap/costmap", OccupancyGrid, self.__global_costmap_cb, queue_size=1)
-        self.__rocal_costmap_sub = rospy.Subscriber(
+        self.__local_costmap_sub = rospy.Subscriber(
             "/move_base/local_costmap/costmap", OccupancyGrid, self.__local_costmap_cb, queue_size=1)
         self._odom_sub = rospy.Subscriber(
             "/odom", Odometry, self.__odm_cb, queue_size=1)
@@ -27,10 +31,15 @@ class ObstacleDetector():
             "/obstacle_detector/detect_request", String, self.__obstacle_detect_cb, queue_size=1)
 
         # ROS Publisher
+        self.__trimed_global_costmap_pub = rospy.Publisher(
+            "/obstacle_detector/global_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
+        self.__trimed_local_costmap_pub = rospy.Publisher(
+            "/obstacle_detector/local_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
         self.__trimed_merged_costmap_pub = rospy.Publisher(
             "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, queue_size=1)
         self.__obstacle_detect_pub = rospy.Publisher(
             "/obstacle_detector/msg", String, queue_size=1)
+
         self.__initial_global_costmap = None
         self.__local_costmap = None
         self.__threshold = 90
@@ -188,6 +197,7 @@ class ObstacleDetector():
             self.__initial_global_costmap = Costmap(
                 costmap, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
+            self.__trimed_global_costmap_pub.publish(self.__trim_costmap(self.__initial_global_costmap).converte_occupancy_grid())
         
 
     def __local_costmap_cb(self, data):
@@ -196,6 +206,7 @@ class ObstacleDetector():
         self.__local_costmap = Costmap(
                 costmap, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
+        
         if self.__initial_global_costmap != None:
             merged_array = self.__merge_costmap_local_costmap_to_global_costmap(self.__initial_global_costmap, self.__local_costmap)
             self.__trimed_merged_costmap = self.__trim_costmap(merged_array)
@@ -203,6 +214,8 @@ class ObstacleDetector():
         
         if self.__is_detect_request:
             self.__obstacle_detect(self.__local_costmap)
+        
+        self.__trimed_local_costmap_pub.publish(self.__trim_costmap(self.__local_costmap).converte_occupancy_grid())
 
     def __trim_costmap(self, costmap):
         start = dict(x=None, y=None)
@@ -240,11 +253,11 @@ class ObstacleDetector():
                     if sx == None:
                         sx = x
                     ex = x
-            if start["x"] > sx:
+            if (sx is not None) and (start["x"] > sx):
                 start["x"] = sx
             if end["x"] < ex:
                 end["x"] = ex
-        if start["x"] > end["x"] or sx == None:
+        if start["x"] > end["x"]:
             start["x"], end["x"] = 0, width - 1
 
         # 切り取り
@@ -325,41 +338,6 @@ class ObstacleDetector():
         self.__calc_center_point(points, distance//2, start, (center_x, center_y))
         self.__calc_center_point(points, distance//2, (center_x, center_y), end)
 
-
-
-class Costmap():
-    def __init__(self, array, height, width, resolution, origin):
-        self.__array = array
-        self.__height = height
-        self.__width = width
-        self.__resolution = resolution  # The map resolution [m/cell]
-        self.__origin = origin
-
-    def get_array(self):
-        return self.__array
-    
-    # TODO: 適切な関数名をつける
-    def convert_array(self, func):
-        h, w = self.__height, self.__width
-        return np.array(map(func, self.__array.reshape(h*w)), dtype="uint8").reshape(h, w)
-
-    def get_size(self):
-        return self.__height, self.__width
-
-    def get_resolution(self):
-        return self.__resolution
-
-    def get_origin(self):
-        return self.__origin
-
-    def converte_occupancy_grid(self):
-        grid = OccupancyGrid()
-        grid.data = tuple(self.__array.reshape(self.__height * self.__width))
-        grid.info.resolution = self.__resolution
-        grid.info.origin = self.__origin
-        grid.info.height = self.__height
-        grid.info.width = self.__width
-        return grid
 
 if __name__ == "__main__":
     rospy.init_node('obstacle_detector')
