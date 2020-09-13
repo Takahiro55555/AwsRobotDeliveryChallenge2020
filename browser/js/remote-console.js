@@ -277,6 +277,11 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
         p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE - 1));
         p.textAlign(p.CENTER, p.CENTER);
         p.text(key, x0, y0);
+
+        p.strokeWeight(2);
+        p.stroke("#ff00ff");
+        p.noFill();
+        p.circle(x0, y0, cellSize / resolution * mapGraph[key].tolerance * 2);
     }
 }
 
@@ -603,6 +608,9 @@ function adjustCanvas() {
 }
 adjustCanvas();
 window.onresize = adjustCanvas;
+
+/**** キャンバス右クリック時に独自メニューを出すための処理 ****/
+
 
 /**** 自由にドラッグして配置できるUIを実現するための処理 ****/
 let beforeX = null;  // ドラッグ Event の一番最後の座標がいつも(0, 0)になってしまう問題を解消するために使用
