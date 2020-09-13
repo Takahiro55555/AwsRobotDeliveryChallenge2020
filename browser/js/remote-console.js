@@ -466,6 +466,9 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
     document.getElementById("number-vertex-coordinate-x").value = vertex.x;
     document.getElementById("number-vertex-coordinate-y").value = vertex.y;
 
+    // tolerance の設定
+    document.getElementById("number-vertex-tolerance").value = vertex.tolerance;
+
     // Vertex 入力欄のクリア
     document.getElementById("number-linked-vertex-id").value = "";
     document.getElementById("number-linked-vertex-id").dispatchEvent(new Event('input'));

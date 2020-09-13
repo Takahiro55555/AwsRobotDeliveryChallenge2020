@@ -22,7 +22,7 @@
 
 <body>
     <div class="container-fluid p-0 draggable-card-parent">
-        <div class="card console-card" id="card-console-editor" draggable="true" hidden>
+        <div class="card console-card" id="card-console-editor" draggable="true">
             <div class="card-header">
                 <div class="row">
                     <h6 class="card-title col-10 p-0 mb-0" id="txt-console-card-title"></h6>
@@ -45,6 +45,19 @@
                         <label class="form-check-label" for="checkbox-vertex-is-via-point">
                             is_via_point
                         </label>
+                    </div>
+                    <div class="col-12 pl-0 mb-1">
+                        Tolerance
+                    </div>
+                    <div class="input-group input-group-sm col-12 pl-0 pb-1">
+                        <div class="input-group-prepend">
+                            <span class="input-group-text" id="inputGroup-vertex-tolerance">tolerance</span>
+                        </div>
+                        <input class="form-control" id="number-vertex-tolerance" type="number" step="0.01" min="0" value=""
+                            aria-label="tolerance" aria-describedby="inputGroup-vertex-tolerance">
+                    </div>
+                    <div class="col-12 pl-0 mt-2 mb-1">
+                        Coordinate
                     </div>
                     <div class="input-group input-group-sm col-6 pl-0 pb-1">
                         <div class="input-group-prepend">
