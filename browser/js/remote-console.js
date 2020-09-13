@@ -86,6 +86,14 @@ async function setupAwsIot() {
                     document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 }
             }
+            if("isGoto" in msg && msg.isGoto){
+                document.getElementById("btn-stop").removeAttribute("disabled");
+                currentGotoPoint = msg.point;
+                backgroundLayerP5.redraw();
+            }else{
+                currentGotoPoint = null;
+                backgroundLayerP5.redraw();
+            }
             currentStatus = STATUS_DICT[recievedStatus];
         } else {
             console.log("[" + topic + "] Message recieved.");
@@ -113,7 +121,8 @@ async function setupAwsIot() {
 
 let consoleWidth = document.getElementById("console").clientWidth;
 let consoleHeight = consoleWidth / 130 * 70;
-
+let isDrawGotoPoint = false;
+let currentGotoPoint = null;
 const background_layer_sketch = function (p) {
     p.preload = function () {
         p.VERTEX_ID_FONT = p.loadFont('/font/Roboto-Black.ttf');
@@ -135,6 +144,20 @@ const background_layer_sketch = function (p) {
         // TODO: 経路情報(MapGraph)の描画レイヤーを新たに追加した middle-layer に移植する
         if (mergedCostmap != null && originalMapGraph != null) {
             drawMapGraph(p, originalMapGraph, mergedCostmap, cellSize);
+        }
+        if (isDrawGotoPoint && mergedCostmap != null) {
+            const x = document.getElementById("number-goto-coordinate-x").value;
+            const y = document.getElementById("number-goto-coordinate-y").value;
+            const tolerance = document.getElementById("number-goto-tolerance").value;
+            if (isNaN(x) || isNaN(y) || isNaN(tolerance) || x === "" || y === "" || tolerance === "") {
+                isDrawGotoPoint = false;
+                document.getElementById("btn-goto").setAttribute("disabled", true);
+                return
+            }
+            drawTemporaryGotoPoint(p, x, y, tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
+        }
+        if(mergedCostmap != null && currentGotoPoint != null){
+            drawCurrentGotoPoint(p, currentGotoPoint.x, currentGotoPoint.y, currentGotoPoint.tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
         }
     };
 };
@@ -203,8 +226,54 @@ const front_layer_sketch = function (p) {
                 return;
             }
         }
+        
+        // GoTo を設定
     }
 };
+
+/**
+ * 
+ * @param {Object} p p5.js object renderer は p5.P2Dであるという前提
+ * @param {number} x goto する座標 [m]
+ * @param {number} y goto する座標 [m]
+ * @param {number} tolerance [m]
+ * @param {Object} origin 描画されているMapの実世界における原点座標[m]
+ * @param {number} resolution Map1ピクセル当たりの実世界における大きさ[m]
+ * @param {number} cellSize Canvas上で描画する際のMap1ピクセル当たりの大きさ[pix]
+ * @param {string} strokeColor 表示する際の色
+ */
+function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#000"){
+    const x0 = cellSize / resolution * (x - origin.position.x);
+    const y0 = cellSize / resolution * (y - origin.position.y);
+    const circleRadius = cellSize / resolution * tolerance;
+
+    p.push();
+    p.drawingContext.setLineDash([5, 5]);
+    p.noFill();
+    p.stroke(strokeColor);
+    p.strokeWeight(1);
+    p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
+    p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
+    p.strokeWeight(2);
+    p.circle(x0, y0, circleRadius*2);
+    p.pop();
+}
+
+function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#ff4500"){
+    const x0 = cellSize / resolution * (x - origin.position.x);
+    const y0 = cellSize / resolution * (y - origin.position.y);
+    const circleRadius = cellSize / resolution * tolerance;
+
+    p.push();
+    p.noFill();
+    p.stroke(strokeColor);
+    p.strokeWeight(2);
+    p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
+    p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
+    p.strokeWeight(3);
+    p.circle(x0, y0, circleRadius*2);
+    p.pop();
+}
 
 let cellSize = null;
 function drawCostMap(p) {
@@ -363,6 +432,56 @@ function makeRestartButton() {
     btnElm.removeAttribute("disabled");
 }
 
+document.getElementById("btn-console-set-coordinate-and-tolerance-to-goto").onclick = setCoordinateAndToleranceFromVertexEditor;
+function setCoordinateAndToleranceFromVertexEditor() {
+    const x = document.getElementById("number-vertex-coordinate-x").value;
+    const y = document.getElementById("number-vertex-coordinate-y").value;
+    const tolerance = document.getElementById("number-vertex-tolerance").value;
+    document.getElementById("number-goto-coordinate-x").value = x;
+    document.getElementById("number-goto-coordinate-y").value = y;
+    document.getElementById("number-goto-tolerance").value = tolerance;
+    document.getElementById("number-goto-tolerance").dispatchEvent(new Event('input'));
+}
+
+document.getElementById("number-goto-coordinate-x").oninput = onInputGoto;
+document.getElementById("number-goto-coordinate-y").oninput = onInputGoto;
+document.getElementById("number-goto-tolerance").oninput = onInputGoto;
+function onInputGoto() {
+    const x = document.getElementById("number-goto-coordinate-x").value;
+    const y = document.getElementById("number-goto-coordinate-y").value;
+    const tolerance = document.getElementById("number-goto-tolerance").value;
+    if (isNaN(x) || isNaN(y) || isNaN(tolerance) || x === "" || y === "" || tolerance === "") {
+        isDrawGotoPoint = false;
+        document.getElementById("btn-goto").setAttribute("disabled", true);
+        return
+    }
+    document.getElementById("btn-goto").removeAttribute("disabled");
+    isDrawGotoPoint = true;
+    backgroundLayerP5.redraw();
+}
+
+document.getElementById("btn-goto").onclick = requestGoto;
+function requestGoto(){
+    if (deviceIot === null) {
+        return;
+    }
+    const x = Number(document.getElementById("number-goto-coordinate-x").value);
+    const y = Number(document.getElementById("number-goto-coordinate-y").value);
+    const tolerance = Number(document.getElementById("number-goto-tolerance").value);
+    if (isNaN(x) || isNaN(y) || isNaN(tolerance) || x === "" || y === "" || tolerance === "") {
+        isDrawGotoPoint = false;
+        document.getElementById("btn-goto").setAttribute("disabled", true);
+        return
+    }
+    let payload = {};
+    requestId = (new Date()).getTime();
+    payload["buttonName"] = "btn-goto";
+    payload["requestId"] = requestId;
+    payload["isClicked"] = true;
+    payload["point"] = {"x": x, "y": y, "tolerance": tolerance};
+    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));  
+}
+
 document.getElementById("btn-stop").onclick = stopButton;
 function stopButton() {
     if (deviceIot === null) {
@@ -465,6 +584,9 @@ function setDataOnVertexEditor(vertexId, vertex, linkedVertexIdList, unlinkedVer
     // 座標の設定
     document.getElementById("number-vertex-coordinate-x").value = vertex.x;
     document.getElementById("number-vertex-coordinate-y").value = vertex.y;
+
+    // tolerance の設定
+    document.getElementById("number-vertex-tolerance").value = vertex.tolerance;
 
     // Vertex 入力欄のクリア
     document.getElementById("number-linked-vertex-id").value = "";
