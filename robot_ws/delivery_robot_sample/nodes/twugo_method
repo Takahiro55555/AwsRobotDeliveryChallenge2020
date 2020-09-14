@@ -172,6 +172,7 @@ class TwugoMethod():
                               math.cos(atan2_tmp - r_ang))
 
         back_ang_diff = self.sign(ang_diff) * math.pi - ang_diff
+        speed_zero_ang_threshold = math.pi/10
         if self.__current_game_mode == self.__game_mode_list["main"]:
             speed_zero_ang_threshold = math.pi/10
         elif self.__current_game_mode == self.__game_mode_list["final"]:
