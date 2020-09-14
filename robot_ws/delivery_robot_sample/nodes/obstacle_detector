@@ -37,8 +37,6 @@ class ObstacleDetector():
             "/obstacle_detector/global_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
         self.__trimed_local_costmap_pub = rospy.Publisher(
             "/obstacle_detector/local_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
-        self.__trimed_merged_costmap_pub = rospy.Publisher(
-            "/obstacle_detector/merged_costmap/trimed", OccupancyGrid, queue_size=1)
         self.__obstacle_detect_pub = rospy.Publisher(
             "/obstacle_detector/msg", String, queue_size=1)
 
@@ -46,7 +44,6 @@ class ObstacleDetector():
         self.__local_costmap = None
         self.__threshold = 90
         self.__robot_positon = None
-        self.__trimed_merged_costmap = None
 
         # 障害物検知(obstacle_detector)で使う変数
         self.__all_linked_vertex_detection = False      # このフラグで隣接vertexをすべて障害物検知するか選べる
@@ -216,11 +213,6 @@ class ObstacleDetector():
         self.__local_costmap = Costmap(
                 costmap, data.info.height, data.info.width,
                 data.info.resolution, data.info.origin)
-        
-        if self.__initial_global_costmap != None:
-            merged_array = self.__merge_costmap_local_costmap_to_global_costmap(self.__initial_global_costmap, self.__local_costmap)
-            self.__trimed_merged_costmap = self.__trim_costmap(merged_array)
-            self.__trimed_merged_costmap_pub.publish(self.__trimed_merged_costmap.converte_occupancy_grid())
         
         if self.__is_detect_request:
             self.__obstacle_detect(self.__local_costmap)
