@@ -19,6 +19,8 @@ async function getCognitoCredentials() {
 let mergedCostmap = null;
 let globalCostmap = null;
 let localCostmap = null;
+let isDrawGlobalCostmap = true;
+let isDrawLocalCostmap = true;
 let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
@@ -43,15 +45,16 @@ async function setupAwsIot() {
     // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
         const msg = JSON.parse(payload.toString());
-        if (topic == subscribeTopics.mergedCostmap) {
-            mergedCostmap = msg;
+        if (topic == subscribeTopics.globalCostmap) {
+            globalCostmap = msg;
             backgroundLayerP5.redraw();
             middleLayerP5.redraw();
             frontLayerP5.redraw();
-        } else if (topic == subscribeTopics.globalCostmap) {
-            globalCostmap = msg;
         } else if (topic == subscribeTopics.localCostmap) {
             localCostmap = msg;
+            backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
+            frontLayerP5.redraw();
         } else if (topic == subscribeTopics.odom) {
             odom = msg;
             frontLayerP5.redraw();
@@ -140,7 +143,7 @@ const background_layer_sketch = function (p) {
         p.background(255);
 
         /*** 以下、描画処理 ***/
-        drawCostMap(p);
+        drawCostmap(p);
     };
 };
 
@@ -157,7 +160,6 @@ const middle_layer_sketch = function (p) {
     };
 
     p.draw = function () {
-        console.log("Middle layer draw");
         /*** 以下、初期化処理 ***/
         p.clear();
 
@@ -287,25 +289,118 @@ function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, 
     p.pop();
 }
 
-let cellSize = null;
-function drawCostMap(p) {
-    if (mergedCostmap === null) {
+function applyIndicateCostmap(_isDrawGlobalCostmap, _isDrawLocalCostmap) {
+    if (typeof (_isDrawGlobalCostmap) !== "boolean") {
         return;
     }
-    p.noStroke();
-    const colorFrom = p.color(255);
-    const colorTo = p.color(0);
+    if (typeof (_isDrawLocalCostmap) !== "boolean") {
+        return;
+    }
+    isDrawGlobalCostmap = _isDrawGlobalCostmap;
+    isDrawLocalCostmap = _isDrawLocalCostmap;
 
+    backgroundLayerP5.redraw();
+    middleLayerP5.redraw();
+    frontLayerP5.redraw();
+}
+
+let cellSize = null;
+function drawCostmap(p) {
+    if (localCostmap === null && globalCostmap === null) {
+        return;
+    }
+    if (isDrawGlobalCostmap && globalCostmap === null) {
+        return;
+    }
+    if (isDrawLocalCostmap && localCostmap === null) {
+        return
+    }
+    const globalColorFrom = p.color(255, 255, 255, 0);
+    const globalColorTo = p.color(0, 0, 0, 180);
+    const localColorFrom = p.color(255, 255, 255, 0);
+    const localColorTo = p.color(0, 0, 255, 180);
+    let colorList = null;
+    if (isDrawGlobalCostmap && isDrawLocalCostmap) {
+        mergedCostmap = mergeCostmaps([globalCostmap, localCostmap]);
+        colorList = [{ "from": globalColorFrom, "to": globalColorTo }, { "from": localColorFrom, "to": localColorTo }];
+    } else if (isDrawGlobalCostmap) {
+        mergedCostmap = mergeCostmaps([globalCostmap]);
+        colorList = [{ "from": globalColorFrom, "to": globalColorTo }];
+    } else if (isDrawLocalCostmap) {
+        mergedCostmap = mergeCostmaps([localCostmap]);
+        colorList = [{ "from": localColorFrom, "to": localColorTo }];
+    }
+    p.noStroke();
     let w = consoleWidth / mergedCostmap.info.width;
     let h = consoleHeight / mergedCostmap.info.height;
     cellSize = w < h ? w : h;
 
-    for (let row = 0; row < mergedCostmap.info.height; row++) {
-        for (let col = 0; col < mergedCostmap.info.width; col++) {
-            p.fill(p.lerpColor(colorFrom, colorTo, mergedCostmap.data[row][col] / 100));
-            p.rect(col * cellSize, row * cellSize, cellSize, cellSize);
+    for (let i = 0; i < mergedCostmap.costmaps.length; i++) {
+        for (let row = 0; row < mergedCostmap.costmaps[i].height; row++) {
+            for (let col = 0; col < mergedCostmap.costmaps[i].width; col++) {
+                p.fill(p.lerpColor(colorList[i].from, colorList[i].to, mergedCostmap.costmaps[i].data[row][col] / 100));
+                p.rect((col + mergedCostmap.costmaps[i].indexPaddingX) * cellSize, (row + mergedCostmap.costmaps[i].indexPaddingY) * cellSize, cellSize, cellSize);
+            }
         }
     }
+}
+
+// NOTE: 全てのcostmapのorigin.orientation が一致するという前提の関数
+function mergeCostmaps(costmapList) {
+    if (costmapList.length < 1) {
+        return null;
+    }
+    const orientationString = JSON.stringify(costmapList[0].info.origin.orientation);
+    const resolution = costmapList[0].info.resolution;
+    let startX = costmapList[0].info.origin.position.x;
+    let startY = costmapList[0].info.origin.position.y;
+    let endX = startX + costmapList[0].info.width * resolution;
+    let endY = startY + costmapList[0].info.height * resolution;
+    for (let i = 1; i < costmapList.length; i++) {
+        // 全てのcostmapのorigin.orientation が一致するという前提が崩れた場合は、nullを返す
+        if (orientationString != JSON.stringify(costmapList[i].info.origin.orientation)) {
+            console.log("Costmap 同士の Orientation が一致しませんでした [index: " + String(i) + "]");
+            return null;
+        }
+        if (resolution != costmapList[i].info.resolution) {
+            console.log("Costmap 同士の Resolution が一致しませんでした [index: " + String(i) + "]");
+            return null;
+        }
+        const sx = costmapList[i].info.origin.position.x;
+        const sy = costmapList[i].info.origin.position.y;
+        const ex = sx + costmapList[i].info.width * resolution;
+        const ey = sy + costmapList[i].info.height * resolution;
+
+        if (sx < startX) {
+            startX = sx;
+        }
+        if (sy < startY) {
+            startY = sy;
+        }
+        if (ex > endX) {
+            endX = ex;
+        }
+        if (ey > endY) {
+            endY = ey;
+        }
+    }
+    const mergedCostmap = { "info": { "origin": { "position": {} } } };
+    mergedCostmap.info.origin.position.x = startX;
+    mergedCostmap.info.origin.position.y = startY;
+    mergedCostmap.info.resolution = resolution;
+    mergedCostmap.info.width = Math.floor((endX - startX) / resolution);
+    mergedCostmap.info.height = Math.floor((endY - startY) / resolution);
+    mergedCostmap.costmaps = [];
+    for (let i = 0; i < costmapList.length; i++) {
+        const costmap = {};
+        costmap.data = JSON.parse(JSON.stringify(costmapList[i].data));
+        costmap.width = costmapList[i].info.width;
+        costmap.height = costmapList[i].info.height;
+        costmap.indexPaddingX = ((costmapList[i].info.origin.position.x - startX) / resolution);
+        costmap.indexPaddingY = ((costmapList[i].info.origin.position.y - startY) / resolution);
+        mergedCostmap.costmaps.push(costmap);
+    }
+    return mergedCostmap
 }
 
 const VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE = 3;
