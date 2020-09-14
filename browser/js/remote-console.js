@@ -875,7 +875,7 @@ frontLayerParent.addEventListener('contextmenu', function (e) {
     yamlString += "\n    x: ";
     yamlString += String(x);
     yamlString += "\n    y: ";
-    yamlString += String(x);
+    yamlString += String(y);
     yamlString += "\n    tolerance: ";
     yamlString += String(document.getElementById("number-goto-tolerance").value);
     yamlString += "\n    is_destination: false";
