@@ -70,6 +70,7 @@ class Commander():
                 self._is_goal = False
                 self._current_step = 0    
                 self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start", "gameMode": self.__current_game_mode}))
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "running"}))
                 return
             
             planner_payload = {}
@@ -182,6 +183,7 @@ class Commander():
                         self._is_goal = True
                         payload["is_goal"] = self._is_goal
                         self._twugo_method_pub.publish(json.dumps(payload))
+                        self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goal"}))
                         rospy.loginfo("Is Goal!!!!!!!!")
 
         except Exception as e:
