@@ -37,8 +37,10 @@ class ObstacleDetector():
             "/obstacle_detector/global_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
         self.__trimed_local_costmap_pub = rospy.Publisher(
             "/obstacle_detector/local_costmap/trimed", OccupancyGrid, queue_size=1, latch=True)
-        self.__obstacle_detect_pub = rospy.Publisher(
+        self.__commander_pub = rospy.Publisher(
             "/obstacle_detector/msg", String, queue_size=1)
+        self.__planner_pub = rospy.Publisher(
+            "/obstacle_detector/request_recalc", String, queue_size=1)
 
         self.__initial_global_costmap = None
         self.__local_costmap = None
@@ -46,7 +48,7 @@ class ObstacleDetector():
         self.__robot_positon = None
 
         # 障害物検知(obstacle_detector)で使う変数
-        self.__all_linked_vertex_detection = False      # このフラグで隣接vertexをすべて障害物検知するか選べる
+        self.__all_linked_vertex_detection = True      # このフラグで隣接vertexをすべて障害物検知するか選べる
         self.__next_vertex_pos = None
         self.__map_graph = None
         self.__pre_vertex_pos = None
@@ -302,11 +304,12 @@ class ObstacleDetector():
         self.__is_detect_request = True
 
     def __obstacle_detect(self, costmap):
+        is_detect = False
         if self.__all_linked_vertex_detection:
             if costmap is None:
                 return
             linked_vertex_id_list = self.__map_graph[str(self.__pre_vertex_id)]["linked_vertex_list"]
-            rospy.loginfo(linked_vertex_id_list)
+            # rospy.loginfo(linked_vertex_id_list)
             if len(linked_vertex_id_list) == 0:
                 return
             costmap_array = costmap.get_array()
@@ -335,9 +338,10 @@ class ObstacleDetector():
                         costmap_count = 0
                     if costmap_count >= costmap_count_threshold:
                         rospy.logwarn("[Obstacle detector] Detect obstacle!!")
+                        is_detect = True
                         payload = {}
                         payload["vertex_id"] = vertex_id
-                        self.__obstacle_detect_pub.publish(json.dumps(payload))
+                        self.__commander_pub.publish(json.dumps(payload))
                         break
         else:
             if costmap is None:
@@ -368,9 +372,13 @@ class ObstacleDetector():
                     costmap_count = 0
                 if costmap_count >= costmap_count_threshold:
                     rospy.logwarn("[Obstacle detector] Detect obstacle!!")
-                    self.__obstacle_detect_pub.publish(json.dumps({"data": "detect_obstacle"}))
+                    is_detect = True
+                    self.__commander_pub.publish(json.dumps({"data": "detect_obstacle"}))
                     break
-            
+        
+        if is_detect:
+            self.__planner_pub.publish(json.dumps({"pre_vertex_id": self.__pre_vertex_id}))
+
         self.__is_detect_request = False
 
     def __calc_center_point(self, points, distance, start, end):
