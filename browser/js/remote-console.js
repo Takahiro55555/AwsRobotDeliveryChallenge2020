@@ -19,6 +19,8 @@ async function getCognitoCredentials() {
 let mergedCostmap = null;
 let globalCostmap = null;
 let localCostmap = null;
+let isDrawGlobalCostmap = true;
+let isDrawLocalCostmap = true;
 let odom = null;
 let originalMapGraph = null;
 let editMapGraph = null;
@@ -43,14 +45,16 @@ async function setupAwsIot() {
     // メッセージ到着時の処理
     deviceIot.on('message', function (topic, payload) {
         const msg = JSON.parse(payload.toString());
-        if (topic == subscribeTopics.mergedCostmap) {
-            mergedCostmap = msg;
-            backgroundLayerP5.redraw();
-            frontLayerP5.redraw();
-        } else if (topic == subscribeTopics.globalCostmap) {
+        if (topic == subscribeTopics.globalCostmap) {
             globalCostmap = msg;
+            backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
+            frontLayerP5.redraw();
         } else if (topic == subscribeTopics.localCostmap) {
             localCostmap = msg;
+            backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
+            frontLayerP5.redraw();
         } else if (topic == subscribeTopics.odom) {
             odom = msg;
             frontLayerP5.redraw();
@@ -59,7 +63,7 @@ async function setupAwsIot() {
                 editMapGraph = msg;
             }
             originalMapGraph = msg;
-            backgroundLayerP5.redraw();
+            middleLayerP5.redraw();
         } else if (topic == subscribeTopics.currentStatus) {
             /**** 各種ボタンの有効化・無効化処理 ****/
             if (!("status" in msg)) {
@@ -86,13 +90,13 @@ async function setupAwsIot() {
                     document.getElementById("btn-retry-game").setAttribute("disabled", true);
                 }
             }
-            if("isGoto" in msg && msg.isGoto){
+            if ("isGoto" in msg && msg.isGoto) {
                 document.getElementById("btn-stop").removeAttribute("disabled");
                 currentGotoPoint = msg.point;
-                backgroundLayerP5.redraw();
-            }else{
+                middleLayerP5.redraw();
+            } else {
                 currentGotoPoint = null;
-                backgroundLayerP5.redraw();
+                middleLayerP5.redraw();
             }
             currentStatus = STATUS_DICT[recievedStatus];
         } else {
@@ -139,12 +143,31 @@ const background_layer_sketch = function (p) {
         p.background(255);
 
         /*** 以下、描画処理 ***/
-        drawCostMap(p);
+        drawCostmap(p);
+    };
+};
 
-        // TODO: 経路情報(MapGraph)の描画レイヤーを新たに追加した middle-layer に移植する
+
+const middle_layer_sketch = function (p) {
+    p.preload = function () {
+        p.VERTEX_ID_FONT = p.loadFont('/font/Roboto-Black.ttf');
+    };
+
+    p.setup = function () {
+        p.createCanvas(consoleWidth, consoleHeight);
+        p.background(0, 0, 0, 0);
+        p.noLoop();
+    };
+
+    p.draw = function () {
+        /*** 以下、初期化処理 ***/
+        p.clear();
+
+        /*** 以下、描画処理 ***/
         if (mergedCostmap != null && originalMapGraph != null) {
             drawMapGraph(p, originalMapGraph, mergedCostmap, cellSize);
         }
+
         if (isDrawGotoPoint && mergedCostmap != null) {
             const x = document.getElementById("number-goto-coordinate-x").value;
             const y = document.getElementById("number-goto-coordinate-y").value;
@@ -156,11 +179,11 @@ const background_layer_sketch = function (p) {
             }
             drawTemporaryGotoPoint(p, x, y, tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
         }
-        if(mergedCostmap != null && currentGotoPoint != null){
+        if (mergedCostmap != null && currentGotoPoint != null) {
             drawCurrentGotoPoint(p, currentGotoPoint.x, currentGotoPoint.y, currentGotoPoint.tolerance, mergedCostmap.info.origin, mergedCostmap.info.resolution, cellSize);
         }
     };
-};
+}
 
 let activeVertexId = null;
 let unlinkedVertexList = [];
@@ -185,15 +208,6 @@ const front_layer_sketch = function (p) {
         /*** 以下、描画処理 ***/
         if (odom != null && mergedCostmap != null) {
             drawTurtleBot3(p, odom, mergedCostmap, cellSize, consoleWidth, consoleHeight);
-        }
-        if (activeVertexId != null) {
-            p.push();
-            p.strokeWeight(4);
-            p.stroke(255, 255, 0);
-            p.fill(0, 0, 0, 0);
-            p.translate(-consoleWidth / 2 + vertexCoordinateDictOnCanvas[activeVertexId].x0, -consoleHeight / 2 + vertexCoordinateDictOnCanvas[activeVertexId].y0);  // 原点を vertex の位置にする
-            p.circle(0, 0, cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE + 1));
-            p.pop();
         }
     };
 
@@ -222,11 +236,11 @@ const front_layer_sketch = function (p) {
                     }
                 }
                 setDataOnVertexEditor(activeVertexId, editMapGraph[activeVertexId], linkedVertexList, unlinkedVertexList);
-
+                middleLayerP5.redraw();
                 return;
             }
         }
-        
+
         // GoTo を設定
     }
 };
@@ -242,7 +256,7 @@ const front_layer_sketch = function (p) {
  * @param {number} cellSize Canvas上で描画する際のMap1ピクセル当たりの大きさ[pix]
  * @param {string} strokeColor 表示する際の色
  */
-function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#000"){
+function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor = "#000") {
     const x0 = cellSize / resolution * (x - origin.position.x);
     const y0 = cellSize / resolution * (y - origin.position.y);
     const circleRadius = cellSize / resolution * tolerance;
@@ -255,11 +269,11 @@ function drawTemporaryGotoPoint(p, x, y, tolerance, origin, resolution, cellSize
     p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
     p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
     p.strokeWeight(2);
-    p.circle(x0, y0, circleRadius*2);
+    p.circle(x0, y0, circleRadius * 2);
     p.pop();
 }
 
-function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor="#ff4500"){
+function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, strokeColor = "#ff4500") {
     const x0 = cellSize / resolution * (x - origin.position.x);
     const y0 = cellSize / resolution * (y - origin.position.y);
     const circleRadius = cellSize / resolution * tolerance;
@@ -271,29 +285,122 @@ function drawCurrentGotoPoint(p, x, y, tolerance, origin, resolution, cellSize, 
     p.line(x0 - circleRadius, y0, x0 + circleRadius, y0);
     p.line(x0, y0 - circleRadius, x0, y0 + circleRadius);
     p.strokeWeight(3);
-    p.circle(x0, y0, circleRadius*2);
+    p.circle(x0, y0, circleRadius * 2);
     p.pop();
 }
 
-let cellSize = null;
-function drawCostMap(p) {
-    if (mergedCostmap === null) {
+function applyIndicateCostmap(_isDrawGlobalCostmap, _isDrawLocalCostmap) {
+    if (typeof (_isDrawGlobalCostmap) !== "boolean") {
         return;
     }
-    p.noStroke();
-    const colorFrom = p.color(255);
-    const colorTo = p.color(0);
+    if (typeof (_isDrawLocalCostmap) !== "boolean") {
+        return;
+    }
+    isDrawGlobalCostmap = _isDrawGlobalCostmap;
+    isDrawLocalCostmap = _isDrawLocalCostmap;
 
+    backgroundLayerP5.redraw();
+    middleLayerP5.redraw();
+    frontLayerP5.redraw();
+}
+
+let cellSize = null;
+function drawCostmap(p) {
+    if (localCostmap === null && globalCostmap === null) {
+        return;
+    }
+    if (isDrawGlobalCostmap && globalCostmap === null) {
+        return;
+    }
+    if (isDrawLocalCostmap && localCostmap === null) {
+        return
+    }
+    const globalColorFrom = p.color(255, 255, 255, 0);
+    const globalColorTo = p.color(0, 0, 0, 180);
+    const localColorFrom = p.color(255, 255, 255, 0);
+    const localColorTo = p.color(0, 0, 255, 180);
+    let colorList = null;
+    if (isDrawGlobalCostmap && isDrawLocalCostmap) {
+        mergedCostmap = mergeCostmaps([globalCostmap, localCostmap]);
+        colorList = [{ "from": globalColorFrom, "to": globalColorTo }, { "from": localColorFrom, "to": localColorTo }];
+    } else if (isDrawGlobalCostmap) {
+        mergedCostmap = mergeCostmaps([globalCostmap]);
+        colorList = [{ "from": globalColorFrom, "to": globalColorTo }];
+    } else if (isDrawLocalCostmap) {
+        mergedCostmap = mergeCostmaps([localCostmap]);
+        colorList = [{ "from": localColorFrom, "to": localColorTo }];
+    }
+    p.noStroke();
     let w = consoleWidth / mergedCostmap.info.width;
     let h = consoleHeight / mergedCostmap.info.height;
     cellSize = w < h ? w : h;
 
-    for (let row = 0; row < mergedCostmap.info.height; row++) {
-        for (let col = 0; col < mergedCostmap.info.width; col++) {
-            p.fill(p.lerpColor(colorFrom, colorTo, mergedCostmap.data[row][col] / 100));
-            p.rect(col * cellSize, row * cellSize, cellSize, cellSize);
+    for (let i = 0; i < mergedCostmap.costmaps.length; i++) {
+        for (let row = 0; row < mergedCostmap.costmaps[i].height; row++) {
+            for (let col = 0; col < mergedCostmap.costmaps[i].width; col++) {
+                p.fill(p.lerpColor(colorList[i].from, colorList[i].to, mergedCostmap.costmaps[i].data[row][col] / 100));
+                p.rect((col + mergedCostmap.costmaps[i].indexPaddingX) * cellSize, (row + mergedCostmap.costmaps[i].indexPaddingY) * cellSize, cellSize, cellSize);
+            }
         }
     }
+}
+
+// NOTE: 全てのcostmapのorigin.orientation が一致するという前提の関数
+function mergeCostmaps(costmapList) {
+    if (costmapList.length < 1) {
+        return null;
+    }
+    const orientationString = JSON.stringify(costmapList[0].info.origin.orientation);
+    const resolution = costmapList[0].info.resolution;
+    let startX = costmapList[0].info.origin.position.x;
+    let startY = costmapList[0].info.origin.position.y;
+    let endX = startX + costmapList[0].info.width * resolution;
+    let endY = startY + costmapList[0].info.height * resolution;
+    for (let i = 1; i < costmapList.length; i++) {
+        // 全てのcostmapのorigin.orientation が一致するという前提が崩れた場合は、nullを返す
+        if (orientationString != JSON.stringify(costmapList[i].info.origin.orientation)) {
+            console.log("Costmap 同士の Orientation が一致しませんでした [index: " + String(i) + "]");
+            return null;
+        }
+        if (resolution != costmapList[i].info.resolution) {
+            console.log("Costmap 同士の Resolution が一致しませんでした [index: " + String(i) + "]");
+            return null;
+        }
+        const sx = costmapList[i].info.origin.position.x;
+        const sy = costmapList[i].info.origin.position.y;
+        const ex = sx + costmapList[i].info.width * resolution;
+        const ey = sy + costmapList[i].info.height * resolution;
+
+        if (sx < startX) {
+            startX = sx;
+        }
+        if (sy < startY) {
+            startY = sy;
+        }
+        if (ex > endX) {
+            endX = ex;
+        }
+        if (ey > endY) {
+            endY = ey;
+        }
+    }
+    const mergedCostmap = { "info": { "origin": { "position": {} } } };
+    mergedCostmap.info.origin.position.x = startX;
+    mergedCostmap.info.origin.position.y = startY;
+    mergedCostmap.info.resolution = resolution;
+    mergedCostmap.info.width = Math.floor((endX - startX) / resolution);
+    mergedCostmap.info.height = Math.floor((endY - startY) / resolution);
+    mergedCostmap.costmaps = [];
+    for (let i = 0; i < costmapList.length; i++) {
+        const costmap = {};
+        costmap.data = JSON.parse(JSON.stringify(costmapList[i].data));
+        costmap.width = costmapList[i].info.width;
+        costmap.height = costmapList[i].info.height;
+        costmap.indexPaddingX = ((costmapList[i].info.origin.position.x - startX) / resolution);
+        costmap.indexPaddingY = ((costmapList[i].info.origin.position.y - startY) / resolution);
+        mergedCostmap.costmaps.push(costmap);
+    }
+    return mergedCostmap
 }
 
 const VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE = 3;
@@ -336,21 +443,33 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
         const y0 = cellSize / resolution * (mapGraph[key].y - costmap.info.origin.position.y);
         vertexIdListOnCanvas.unshift(key); // vertex が重なった際、手前のほうの vertex をクリック判定するために unshift を使用
         vertexCoordinateDictOnCanvas[key] = { x0, y0 };
-        p.stroke("#00bfff");
+
+        p.push();
+        p.stroke("#87cefa");
+        p.fill("#87cefa");
+        if (key === activeVertexId) {
+            p.stroke("#ffd700");
+            p.fill("#ffd700");
+        }
         p.strokeWeight(2);
-        p.fill("#00bfff");
         p.circle(x0, y0, cellSize * VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE);
+        p.pop();
 
-        p.fill(0);
-        p.textFont(p.VERTEX_ID_FONT);
-        p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE - 1));
-        p.textAlign(p.CENTER, p.CENTER);
-        p.text(key, x0, y0);
-
+        p.push();
         p.strokeWeight(2);
         p.stroke("#ff00ff");
         p.noFill();
         p.circle(x0, y0, cellSize / resolution * mapGraph[key].tolerance * 2);
+        p.pop();
+
+        p.push();
+        p.noStroke();
+        p.fill(0);
+        p.textFont(p.VERTEX_ID_FONT);
+        p.textSize(cellSize * (VERTEX_DIAMETER_MAGNIFICATION_FROM_CELL_SIZE) * 0.6);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text(key, x0, y0);
+        p.pop();
     }
 }
 
@@ -451,17 +570,20 @@ function onInputGoto() {
     const y = document.getElementById("number-goto-coordinate-y").value;
     const tolerance = document.getElementById("number-goto-tolerance").value;
     if (isNaN(x) || isNaN(y) || isNaN(tolerance) || x === "" || y === "" || tolerance === "") {
-        isDrawGotoPoint = false;
+        if (isDrawGotoPoint) {
+            isDrawGotoPoint = false;
+            middleLayerP5.redraw();
+        }
         document.getElementById("btn-goto").setAttribute("disabled", true);
         return
     }
     document.getElementById("btn-goto").removeAttribute("disabled");
     isDrawGotoPoint = true;
-    backgroundLayerP5.redraw();
+    middleLayerP5.redraw();
 }
 
 document.getElementById("btn-goto").onclick = requestGoto;
-function requestGoto(){
+function requestGoto() {
     if (deviceIot === null) {
         return;
     }
@@ -478,8 +600,8 @@ function requestGoto(){
     payload["buttonName"] = "btn-goto";
     payload["requestId"] = requestId;
     payload["isClicked"] = true;
-    payload["point"] = {"x": x, "y": y, "tolerance": tolerance};
-    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));  
+    payload["point"] = { "x": x, "y": y, "tolerance": tolerance };
+    deviceIot.publish(publishTopics.buttons, JSON.stringify(payload));
 }
 
 document.getElementById("btn-stop").onclick = stopButton;
@@ -653,7 +775,7 @@ function closeConsoleCard(id) {
     activeVertexId = null;
     unlinkedVertexList.length = 0;
     linkedVertexList.length = 0;
-    frontLayerP5.redraw();
+    middleLayerP5.redraw();
 }
 
 function updateLinkedVertexButton(obj) {
@@ -708,8 +830,10 @@ function copyValue(obj, targetElmId) {
 
 /* Sketch を DOM に追加 */
 const backgroundLayerP5 = new p5(background_layer_sketch, "background-layer");
+const middleLayerP5 = new p5(middle_layer_sketch, "middle-layer");
 const frontLayerP5 = new p5(front_layer_sketch, "front-layer");
 const backgroundLayerParent = document.getElementById("background-layer");
+const middleLayerParent = document.getElementById("middle-layer");
 const frontLayerParent = document.getElementById("front-layer");
 const consoleElement = document.getElementById("console");
 
@@ -721,11 +845,14 @@ function adjustCanvas() {
     consoleElement.style.height = String(consoleHeight) + "px";
     backgroundLayerParent.style.height = String(consoleHeight) + "px";
     backgroundLayerParent.style.width = String(consoleWidth) + "px";
+    middleLayerParent.style.height = String(consoleHeight) + "px";
+    middleLayerParent.style.width = String(consoleWidth) + "px";
     frontLayerParent.style.height = String(consoleHeight) + "px";
     frontLayerParent.style.width = String(consoleWidth) + "px";
 
     /* Canvas サイズの変更 */
     backgroundLayerP5.resizeCanvas(consoleWidth, consoleHeight);
+    middleLayerP5.resizeCanvas(consoleWidth, consoleHeight);
     frontLayerP5.resizeCanvas(consoleWidth, consoleHeight);
 }
 adjustCanvas();

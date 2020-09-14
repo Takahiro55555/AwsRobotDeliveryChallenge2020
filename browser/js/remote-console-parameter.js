@@ -18,7 +18,6 @@ const STATUS_DICT = {
 
 // NOTE: この辞書のkeyは、ROS側のノード「remote_console」の「RemoteConsole::__data_publish_funcs」のkeyと一致させること
 const subscribeTopics = {
-    "mergedCostmap": iotclientId + "/ros_to_remote_console/obstacle_detector/merged_costmap/trimed",
     "globalCostmap": iotclientId + "/ros_to_remote_console/global_costmap/trimed",
     "localCostmap": iotclientId + "/ros_to_remote_console/local_costmap/trimed",
     "odom": iotclientId + "/ros_to_remote_console/odom",
