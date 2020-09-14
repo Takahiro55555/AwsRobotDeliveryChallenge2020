@@ -70,7 +70,8 @@
                         <input class="form-control" id="number-vertex-tolerance" type="number" step="0.01" min="0"
                             value="" aria-label="tolerance" aria-describedby="inputGroup-vertex-tolerance">
                     </div>
-                    <button type="button" class="btn btn-sm col-12 btn-secondary btn-block btn-line-through-on-disabled mt-2"
+                    <button type="button"
+                        class="btn btn-sm col-12 btn-secondary btn-block btn-line-through-on-disabled mt-2"
                         id="btn-console-set-coordinate-and-tolerance-to-goto">座標をGoToへ適用</button>
 
                     <div class="col-12 pl-0 pr-0 mt-2">
@@ -167,9 +168,8 @@
                                 <div class="input-group-prepend">
                                     <span class="input-group-text" id="inputGroup-goto-tolerance">tolerance</span>
                                 </div>
-                                <input class="form-control" id="number-goto-tolerance" type="number" step="0.01"
-                                    min="0" value="" aria-label="tolerance"
-                                    aria-describedby="inputGroup-goto-tolerance">
+                                <input class="form-control" id="number-goto-tolerance" type="number" step="0.01" min="0"
+                                    value="" aria-label="tolerance" aria-describedby="inputGroup-goto-tolerance">
                             </div>
                             <button type="button"
                                 class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
@@ -218,6 +218,38 @@
                             <button type="button"
                                 class="btn col-12 btn-warning btn-block btn-line-through-on-disabled mt-2" id="btn-goto"
                                 disabled>適用（送信）</button>
+                        </div>
+                    </div>
+                    <div class="card col-12 offset-2 p-0 mb-2 m-0">
+                        <div class="card-header row p-2 m-0 mb-1">
+                            <h6 class="card-title col-10 p-0 mb-0">表示内容の編集</h6>
+                            <img class="toggle-button-icon col-2 mb-0" src="/img/icon/minus.svg"
+                                onclick="toggleCard(this, 'card-body-indicator-controller')">
+                        </div>
+                        <div class="card-body row p-2 m-0 mt-1" id="card-body-indicator-controller">
+                            <div class="form-group form-check col-12">
+                                <input class="form-check-input" type="radio" name="map-selector"
+                                    id="radio-map-selector-both-costmap" onchange="applyIndicateCostmap(true, true);"
+                                    checked>
+                                <label class="form-check-label" for="radio-map-selector-both-costmap">
+                                    Both costmap
+                                </label>
+                            </div>
+                            <div class="form-group form-check col-12">
+                                <input class="form-check-input" type="radio" name="map-selector"
+                                    id="radio-map-selector-local-costmap" onchange="applyIndicateCostmap(false, true);">
+                                <label class="form-check-label" for="radio-map-selector-local-costmap">
+                                    Only local costmap
+                                </label>
+                            </div>
+                            <div class="form-group form-check col-12">
+                                <input class="form-check-input" type="radio" name="map-selector"
+                                    id="radio-map-selector-global-costmap"
+                                    onchange="applyIndicateCostmap(true, false);">
+                                <label class="form-check-label" for="radio-map-selector-global-costmap">
+                                    Only global costmap
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>
