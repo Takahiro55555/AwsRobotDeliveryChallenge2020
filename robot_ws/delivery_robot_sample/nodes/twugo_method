@@ -105,7 +105,7 @@ class TwugoMethod():
 
         elif self.__current_game_mode == self.__game_mode_list["final"]:
             payload = json.loads(data.data)
-            if  payload["is_goal"]:
+            if  "is_goal" in payload and payload["is_goal"]:
                 self._is_started = False
                 return
 
