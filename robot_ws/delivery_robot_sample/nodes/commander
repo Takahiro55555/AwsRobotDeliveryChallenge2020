@@ -45,6 +45,13 @@ class Commander():
         self._is_sended = False
         self._is_goal = False
 
+        # gameMode関連
+        self.__game_mode_list = {
+            "main": "GAME_MODE_IS_MAIN",  # 本戦モード
+            "final": "GAME_MODE_IS_FINAL"  # 決勝戦モード
+        }
+        self.__current_game_mode = None
+
     def main(self):
         rospy.spin()
 
@@ -52,8 +59,19 @@ class Commander():
         payload = json.loads(data.data)
         if "action" not in payload:
             return
+        if "gameMode" in payload:
+            self.__current_game_mode = payload["gameMode"]
         if payload["action"] == "start":
             rospy.loginfo("detect start!!")
+            # 決勝モード
+            if self.__current_game_mode == self.__game_mode_list["final"]:
+                self._is_started = True
+                self._is_sended = False
+                self._is_goal = False
+                self._current_step = 0    
+                self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start", "gameMode": self.__current_game_mode}))
+                return
+            
             planner_payload = {}
             planner_payload["is_started"] = True
             self._planner_pub.publish(json.dumps(planner_payload))
@@ -70,7 +88,7 @@ class Commander():
             self._is_sended = False
             self._is_goal = False
             self._current_step = 0    
-            self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start"}))
+            self._twugo_method_restart_pub.publish(json.dumps({"data": "is_start", "gameMode": self.__current_game_mode}))
             self._remoteconsole_update_status_pub.publish(json.dumps({"status": "running"}))
 
         if payload["action"] == "restart" and self._is_started:
@@ -94,49 +112,77 @@ class Commander():
 
     def odom_cb(self, data):
         try:
-            payload = {}
-            if self._current_step == None:
-                return
-            if self._is_goal:
-                return
-            if not self._is_started:
-                return
-            if not self._is_sended:
-                payload["id"] = self._step[self._current_step]["vertex_id"]
-                payload["x"] = self._step[self._current_step]["x"]
-                payload["y"] = self._step[self._current_step]["y"]
-                payload["pre_id"] = self._step[self._current_step-1]["vertex_id"]
-                payload["pre_x"] = self._step[self._current_step-1]["x"]
-                payload["pre_y"] = self._step[self._current_step-1]["y"]
-                payload["is_goal"] = self._is_goal
-                payload["is_destination"] = self._step[self._current_step]["is_destination"]
-                self._twugo_method_pub.publish(json.dumps(payload))
-                self._is_sended = True
-            s_x, s_y = self._step[self._current_step]["x"], self._step[self._current_step]["y"]
-            r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
-            error = ((r_x - s_x)**2 + (r_y - s_y)**2)
-            
-            if error < (self._step[self._current_step]["tolerance"]**2)*2:
-                planner_payload = dict(
-                    is_destination=self._step[self._current_step]["is_destination"],
-                    vertex_id=self._step[self._current_step]["vertex_id"]
-                )
-                self._planner_pub.publish(json.dumps(planner_payload))
-
-                if self._step[self._current_step]["is_destination"]:
-                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "delivery"}))
-                    rospy.loginfo("HELLO!!! This is Amazon!!!!")
+            if self.__current_game_mode == self.__game_mode_list["main"]:
+                payload = {}
+                if self._current_step == None:
+                    return
+                if self._is_goal:
+                    return
+                if not self._is_started:
+                    return
+                if not self._is_sended:
+                    payload["id"] = self._step[self._current_step]["vertex_id"]
+                    payload["x"] = self._step[self._current_step]["x"]
+                    payload["y"] = self._step[self._current_step]["y"]
+                    payload["pre_id"] = self._step[self._current_step-1]["vertex_id"]
+                    payload["pre_x"] = self._step[self._current_step-1]["x"]
+                    payload["pre_y"] = self._step[self._current_step-1]["y"]
+                    payload["is_goal"] = self._is_goal
+                    payload["is_destination"] = self._step[self._current_step]["is_destination"]
+                    self._twugo_method_pub.publish(json.dumps(payload))
+                    self._is_sended = True
+                s_x, s_y = self._step[self._current_step]["x"], self._step[self._current_step]["y"]
+                r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
+                error = ((r_x - s_x)**2 + (r_y - s_y)**2)
                 
-                self._current_step += 1
-                self._obstacle_detector_pub.publish(json.dumps({"obstacle_detect_request": True}))
-                self._is_sended = False
-                rospy.loginfo("Current step: %d" % self._current_step)
-                if len(self._step) <= self._current_step:
-                    self._is_goal = True
+                if error < (self._step[self._current_step]["tolerance"]**2)*2:
+                    planner_payload = dict(
+                        is_destination=self._step[self._current_step]["is_destination"],
+                        vertex_id=self._step[self._current_step]["vertex_id"]
+                    )
+                    self._planner_pub.publish(json.dumps(planner_payload))
+
+                    if self._step[self._current_step]["is_destination"]:
+                        self._remoteconsole_update_status_pub.publish(json.dumps({"status": "delivery"}))
+                        rospy.loginfo("HELLO!!! This is Amazon!!!!")
+                    
+                    self._current_step += 1
+                    self._obstacle_detector_pub.publish(json.dumps({"obstacle_detect_request": True}))
+                    self._is_sended = False
+                    rospy.loginfo("Current step: %d" % self._current_step)
+                    if len(self._step) <= self._current_step:
+                        self._is_goal = True
+                        payload["is_goal"] = self._is_goal
+                        self._twugo_method_pub.publish(json.dumps(payload))
+                        self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goal"}))
+                        rospy.loginfo("Is Goal!!!!!!!!")
+            
+            elif self.__current_game_mode == self.__game_mode_list["final"]:
+                rospy.loginfo_once("Final mode.")
+                payload = {}
+                if self._is_goal:
+                    return
+                if not self._is_started:
+                    return
+                if not self._is_sended:
+                    payload["x"] = rospy.get_param("/step")[self._current_step]["x"]
+                    payload["y"] = rospy.get_param("/step")[self._current_step]["y"]
                     payload["is_goal"] = self._is_goal
                     self._twugo_method_pub.publish(json.dumps(payload))
-                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goal"}))
-                    rospy.loginfo("Is Goal!!!!!!!!")
+                    self._is_sended = True
+                s_x, s_y = rospy.get_param("/step")[self._current_step]["x"], rospy.get_param("/step")[self._current_step]["y"]
+                r_x, r_y = data.pose.pose.position.x, data.pose.pose.position.y
+                error = ((r_x - s_x)**2 + (r_y - s_y)**2)
+                
+                if error < rospy.get_param("/step")[self._current_step]["tolerance"]**2:
+                    self._current_step += 1
+                    self._is_sended = False
+                    rospy.loginfo("Current step: %d" % self._current_step)
+                    if len(rospy.get_param("/step")) <= self._current_step:
+                        self._is_goal = True
+                        payload["is_goal"] = self._is_goal
+                        self._twugo_method_pub.publish(json.dumps(payload))
+                        rospy.loginfo("Is Goal!!!!!!!!")
 
         except Exception as e:
             rospy.logwarn("command publisher request failed")

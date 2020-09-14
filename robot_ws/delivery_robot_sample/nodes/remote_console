@@ -104,7 +104,7 @@ class RemoteConsole():
             return
 
         if payload["buttonName"] == "btn-start" and payload["isClicked"]:
-            pub_data = json.dumps({"action": "start"})
+            pub_data = json.dumps({"action": "start", "gameMode": self.__current_game_mode})
             self.__to_commander_pub.publish(pub_data)
             rospy.loginfo("[RemoteConsole::__button_cb] btn-start published: %s" % pub_data)
             #TODO: Game mode を反映する処理を書く
