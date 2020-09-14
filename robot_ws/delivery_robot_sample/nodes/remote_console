@@ -243,8 +243,10 @@ class RemoteConsole():
         if (status not in self.__status_list) and (status != "goto"):
             rospy.logerr("RemoteConsole::__robot_status_cb '%s' は定義されていない「状態」です" % status)
             return
-        if (self.__current_status["status"] == "goal" or self.__current_status["status"] == "ready") and (status == "manual" or status == "stop" or status == "running"):
+        if self.__current_status["status"] == "goal" and (status == "manual" or status == "stop" or status == "running"):
             # status がゴールのまま、手動操作や停止処理が実行されても、status の変更は行わない
+            return
+        if self.__current_status["status"] == "ready" and (status == "manual" or status == "stop"):
             return
         if status in self.__status_list:
             self.__current_status = self.__status_list[status]
