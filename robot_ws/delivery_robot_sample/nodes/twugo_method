@@ -67,50 +67,46 @@ class TwugoMethod():
 
     def twugo_method_cb(self, data):
         payload = json.loads(data.data)
-        if self.__current_game_mode == self.__game_mode_list["main"]:
-            if "is_goal" in payload and payload["is_goal"]:
-                self._is_started = False
+        if "is_goal" in payload and payload["is_goal"]:
+            self._is_started = False
+            return
+        elif "is_interrupted" in payload and payload["is_interrupted"]:
+            self._is_started = False
+            if "mode" not in payload:
+                rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
                 return
-            elif "is_interrupted" in payload and payload["is_interrupted"]:
-                self._is_started = False
-                if "mode" not in payload:
-                    rospy.logerr("[TwugoMethod::set_goal] メッセージに 'mode' が設定されていません。")
-                    return
-                if payload["mode"] == "stop":
-                    self._is_goto_mode = False
-                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
-                    return
-                if payload["mode"] == "manual":
-                    self._is_goto_mode = False
-                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
-                    return
-                if payload["mode"] == "goto":
-                    if "point" not in payload:
-                        rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
-                        return
-                    point = payload["point"]
-                    if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
-                        rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
-                        return
-                    self._is_goto_mode = True
-                    self._x_goto = float(point["x"])
-                    self._y_goto = float(point["y"])
-                    self._tolerance_goto = float(point["tolerance"])
-                    self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goto", "point": point}))
+            if payload["mode"] == "stop":
+                self._is_goto_mode = False
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "stop"}))
                 return
-            elif self._is_before_destination:
-                self._is_started = False
-            
-            self._is_before_destination = payload["is_destination"]
-
-        elif self.__current_game_mode == self.__game_mode_list["final"]:
-            payload = json.loads(data.data)
-            if  "is_goal" in payload and payload["is_goal"]:
-                self._is_started = False
+            if payload["mode"] == "manual":
+                self._is_goto_mode = False
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "manual"}))
                 return
+            if payload["mode"] == "goto":
+                if "point" not in payload:
+                    rospy.logwarn("[Commander::__remote_console_cb] GoToするためには、目標座標とtolerance が設定された'point'が必要です")
+                    return
+                point = payload["point"]
+                if ("x" not in point) or ("y" not in point) or ("tolerance" not in point):
+                    rospy.logwarn("[Commander::__remote_console_cb] 'point' に次のいずれかの値が設定されていません。'x', 'y', 'tolerance'")
+                    return
+                self._is_goto_mode = True
+                self._x_goto = float(point["x"])
+                self._y_goto = float(point["y"])
+                self._tolerance_goto = float(point["tolerance"])
+                self._remoteconsole_update_status_pub.publish(json.dumps({"status": "goto", "point": point}))
+            return
+        elif self._is_before_destination:
+            self._is_started = False
 
         self._x_goal = payload["x"]
         self._y_goal = payload["y"]
+
+        if self.__current_game_mode == self.__game_mode_list["final"]:
+            return
+
+        self._is_before_destination = payload["is_destination"]
 
     def restart_cb(self, data):
         """
