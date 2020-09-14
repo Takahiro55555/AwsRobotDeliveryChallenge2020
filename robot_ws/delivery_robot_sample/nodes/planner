@@ -30,7 +30,8 @@ class Planner():
         # ROS Subscriber
         self.__commander_sub = rospy.Subscriber(
             "/commander/meta_info", String, self.__commander_cb, queue_size=1)
-        
+        self.__obstacle_detector_sub = rospy.Subscriber(
+            "/obstacle_detector/request_recalc", String, self.__obstacle_detector_recalc_cb, queue_size=1)
         # Member variables
         self.__shortest_path_dict = {}
         self.__vertex_dict = {} # self.__vertex_dict: vertexのidをキーにvertexを持っている
@@ -51,7 +52,7 @@ class Planner():
     def __commander_cb(self, data):
         payload = json.loads(data.data)
         if "remove_edge_request" in payload:
-            self.__remove_edge_recalc(payload)
+            self.__remove_edge(payload)
             return
 
         if "is_started" in payload and payload["is_started"]:
@@ -304,7 +305,7 @@ class Planner():
             map_graph_dict[key] = (v_dict)
         return json.dumps(map_graph_dict)
 
-    def __remove_edge_recalc(self, payload):
+    def __remove_edge(self, payload):
         v1 = self.__vertex_dict[payload["pre_vertex_id"]]
         v2 = self.__vertex_dict[payload["vertex_id"]]
         for v1edge in v1.get_edge_list():
@@ -312,11 +313,14 @@ class Planner():
                 if v1edge is v2edge:
                     v1.remove_edge(v1edge)
                     v2.remove_edge(v2edge)
-        
-        full_path = self.__calc_all_patterns(start_vertex_id=payload["pre_vertex_id"])
-        self.__send_path(full_path)
-        rospy.loginfo("[planner] Recalc route")
-        self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
+
+    def __obstacle_detector_recalc_cb(self, data):
+        payload = json.loads(data.data)
+        if "pre_vertex_id" in payload:
+            full_path = self.__calc_all_patterns(start_vertex_id=payload["pre_vertex_id"])
+            self.__send_path(full_path)
+            rospy.loginfo("[planner] Recalc route")
+            self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
 
 class Vertex:
     def __init__(self, vertex_id, x, y, tolerance, is_destination=False):
