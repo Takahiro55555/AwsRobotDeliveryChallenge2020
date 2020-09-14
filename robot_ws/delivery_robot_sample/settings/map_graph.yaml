@@ -6,6 +6,7 @@ vertex_list:
     is_destination: false
     linked_vertex_list:
       - 1
+      - 32
       - 62
 
   - id: 1
