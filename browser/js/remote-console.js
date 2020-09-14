@@ -859,7 +859,31 @@ adjustCanvas();
 window.onresize = adjustCanvas;
 
 /**** キャンバス右クリック時に独自メニューを出すための処理 ****/
+frontLayerParent.addEventListener('contextmenu', function (e) {
+    console.log("Right button pressed");
+    if (document.getElementById("number-goto-tolerance").value === "") {
+        document.getElementById("number-goto-tolerance").value = 0.12;
+    }
+    const x = Math.floor((mergedCostmap.info.origin.position.x + frontLayerP5.mouseX / cellSize * mergedCostmap.info.resolution) * 10000) / 10000;
+    const y = Math.floor((mergedCostmap.info.origin.position.y + frontLayerP5.mouseY / cellSize * mergedCostmap.info.resolution) * 10000) / 10000;
+    document.getElementById("number-goto-coordinate-x").value = x;
+    document.getElementById("number-goto-coordinate-y").value = y;
+    document.getElementById("number-goto-tolerance").dispatchEvent(new Event('input'));
 
+    let yamlString = ""
+    yamlString += "- id: ";
+    yamlString += "\n    x: ";
+    yamlString += String(x);
+    yamlString += "\n    y: ";
+    yamlString += String(x);
+    yamlString += "\n    tolerance: ";
+    yamlString += String(document.getElementById("number-goto-tolerance").value);
+    yamlString += "\n    is_destination: false";
+    yamlString += "\n    linked_vertex_list:";
+    yamlString += "\n      - ";
+
+    console.log(yamlString)
+});
 
 /**** 自由にドラッグして配置できるUIを実現するための処理 ****/
 let beforeX = null;  // ドラッグ Event の一番最後の座標がいつも(0, 0)になってしまう問題を解消するために使用
