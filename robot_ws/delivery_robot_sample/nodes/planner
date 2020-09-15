@@ -85,6 +85,7 @@ class Planner():
                 continue
             self.__vertex_dict[v_id].set_is_destination_true()
             self.__vertex_dict[v_id].set_is_via_point_true()
+            self.__map_graph_pub.publish(self.__get_vertex_list_by_json_str())
 
     def __send_path(self, full_path):
         position_full_path = []
