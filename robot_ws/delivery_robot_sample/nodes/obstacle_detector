@@ -304,10 +304,15 @@ class ObstacleDetector():
         self.__is_detect_request = True
 
     def __obstacle_detect(self, costmap):
+        if costmap is None:
+            return
+        if self.__pre_vertex_id is None:
+            return
+        if (self.__map_graph is None) or not (str(self.__pre_vertex_id) in self.__map_graph):
+            return
+            
         is_detect = False
         if self.__all_linked_vertex_detection:
-            if costmap is None:
-                return
             linked_vertex_id_list = self.__map_graph[str(self.__pre_vertex_id)]["linked_vertex_list"]
             # rospy.loginfo(linked_vertex_id_list)
             if len(linked_vertex_id_list) == 0:
@@ -344,8 +349,6 @@ class ObstacleDetector():
                         self.__commander_pub.publish(json.dumps(payload))
                         break
         else:
-            if costmap is None:
-                return
             if self.__next_vertex_pos is None:
                 return
             costmap_array = costmap.get_array()
