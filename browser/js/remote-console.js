@@ -426,7 +426,7 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
             const y1 = cellSize / resolution * (mapGraph[linkedVertexId].y - costmap.info.origin.position.y);
             edgeCoordinateListOnCanvas.unshift({ x0, y0, x1, y1 });  // edge が重なった際、手前のほうの edge をクリック判定するために unshift を使用
 
-            p.stroke("#00ff00");
+            p.stroke("#afeeee");
             p.strokeWeight(4);
             p.line(x0, y0, x1, y1);
 
@@ -448,6 +448,9 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
         p.stroke("#87cefa");
         p.fill("#87cefa");
         if (key === activeVertexId) {
+            p.stroke("#00ff00");
+            p.fill("#00ff00");
+        } else if (mapGraph[key].is_via_point || mapGraph[key].is_destination) {
             p.stroke("#ffd700");
             p.fill("#ffd700");
         }
