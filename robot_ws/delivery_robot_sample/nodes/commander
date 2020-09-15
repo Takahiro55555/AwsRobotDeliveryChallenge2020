@@ -97,7 +97,7 @@ class Commander():
             self._twugo_method_restart_pub.publish(json.dumps({"data": "is_restart"}))
             self._remoteconsole_update_status_pub.publish(json.dumps({"status": "running"}))
         
-        if payload["action"] == "retryGame" and self._is_goal:
+        if payload["action"] == "retryGame" and (self._is_goal or self._is_started):
             self._current_step = None
             self._step = []
             self._is_started = False
