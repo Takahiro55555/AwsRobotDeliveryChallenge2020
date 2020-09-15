@@ -452,6 +452,7 @@ function drawMapGraph(p, mapGraph, costmap, cellSize) {
             p.fill("#00ff00");
         } else if (mapGraph[key].is_via_point || mapGraph[key].is_destination) {
             p.stroke("#ffd700");
+        } else if (mapGraph[key].is_destination) {
             p.fill("#ffd700");
         }
         p.strokeWeight(2);
