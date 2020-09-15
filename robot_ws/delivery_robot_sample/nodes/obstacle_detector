@@ -306,7 +306,9 @@ class ObstacleDetector():
     def __obstacle_detect(self, costmap):
         if costmap is None:
             return
-        if self.__pre_vertex_pos is None:
+        if self.__pre_vertex_id is None:
+            return
+        if (self.__map_graph is None) or not (str(self.__pre_vertex_id) in self.__map_graph):
             return
             
         is_detect = False
